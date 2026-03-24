@@ -151,6 +151,42 @@ function ScoreCard({ camp, existing, idx, total, pct, onSave, onNext, onHome }) 
   )
 }
 
+// ── CAMPAIGN DETAIL (admin) ──────────────────────────────────────────────────
+function CampDetail({ camp }) {
+  const [open, setOpen] = useState(false)
+  const qc = QCOLORS[camp.quality] || QCOLORS.middling
+  const fields = [
+    ["Year", camp.year], ["Territory", camp.territory], ["Agency", camp.agency],
+    ["Platform", camp.platform], ["Quality", QLABELS[camp.quality]],
+    ["Key stat", camp.stat], ["Context", camp.note], ["Scoring prompt", camp.scoring],
+    ["Watch link", camp.link],
+  ].filter(([,v]) => v)
+  return (
+    <div>
+      <div onClick={()=>setOpen(!open)} style={{cursor:"pointer",fontSize:"12px",color:"var(--color-text-info)",marginBottom:open?"8px":"0",userSelect:"none"}}>
+        {open ? "▾ Hide details" : "▸ Show details"}
+      </div>
+      {open && (
+        <div style={{fontSize:"12px",background:"var(--color-background-secondary)",borderRadius:"6px",padding:"10px 12px",marginBottom:"8px"}}>
+          <div style={{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"8px"}}>
+            <span style={{...css.pill,background:qc.bg,color:qc.color,fontSize:"11px"}}>{QLABELS[camp.quality]}</span>
+            {camp.territory && <span style={{...css.tag,fontSize:"11px"}}>{camp.territory}</span>}
+            {camp.agency && <span style={{...css.tag,fontSize:"11px"}}>{camp.agency}</span>}
+          </div>
+          {fields.map(([label, val]) => (
+            <div key={label} style={{marginBottom:"6px"}}>
+              <span style={{color:"var(--color-text-tertiary)",marginRight:"6px"}}>{label}:</span>
+              {label === "Watch link"
+                ? <a href={val} target="_blank" rel="noreferrer" style={{color:"var(--color-text-info)",wordBreak:"break-all"}}>{val}</a>
+                : <span style={{color:"var(--color-text-primary)"}}>{val}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── MEDIA EDITOR (admin) ─────────────────────────────────────────────────────
 function MediaEdit({ camp, onSave }) {
   const [imgUrl, setImgUrl] = useState(camp.imageUrl || "")
@@ -515,9 +551,10 @@ export default function App() {
           {camps.map(c=>(
             <div key={c.id} style={{...css.card,marginBottom:"8px"}}>
               <div style={{...css.body,padding:"10px 14px"}}>
-                <div style={{fontSize:"13px",fontWeight:"500",marginBottom:"6px"}}>{c.brand} — <span style={{fontWeight:"400",color:"var(--color-text-secondary)"}}>{c.campaign}</span>
-                  {(c.imageUrl||c.videoUrl) && <span style={{fontSize:"11px",color:"var(--color-text-success)",marginLeft:"6px"}}>✓</span>}
+                <div style={{fontSize:"13px",fontWeight:"500",marginBottom:"6px"}}>{c.brand} — <span style={{fontWeight:"400",color:"var(--color-text-secondary)"}}>{c.campaign} · {c.year}</span>
+                  {(c.imageUrl||c.videoUrl) && <span style={{fontSize:"11px",color:"var(--color-text-success)",marginLeft:"6px"}}>✓ media</span>}
                 </div>
+                <CampDetail camp={c}/>
                 <MediaEdit camp={c} onSave={updateMedia}/>
               </div>
             </div>
