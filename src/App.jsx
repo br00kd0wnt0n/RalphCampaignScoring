@@ -53,7 +53,7 @@ const css = {
 }
 
 // ── SCORING CARD (local dim state) ──────────────────────────────────────────
-function ScoreCard({ camp, existing, idx, total, pct, onSave, onNext }) {
+function ScoreCard({ camp, existing, idx, total, pct, onSave, onNext, onHome }) {
   const init = () => { const d={}; DIMS.forEach(dim => { d[dim.id] = existing?.dims?.[dim.id] ?? null }); return d }
   const [dims, setDims] = useState(init)
   const [note, setNote] = useState(existing?.note ?? "")
@@ -122,7 +122,10 @@ function ScoreCard({ camp, existing, idx, total, pct, onSave, onNext }) {
       </div>
 
       <div style={css.navRow}>
-        <button style={css.btnS} onClick={onNext}>skip</button>
+        <div style={{display:"flex",gap:"8px"}}>
+          <button style={css.btnS} onClick={onHome}>Home</button>
+          <button style={css.btnS} onClick={onNext}>skip</button>
+        </div>
         <button style={{...css.btnP,opacity:allDone?1:.4}} disabled={!allDone} onClick={submit}>
           {idx===total-1 ? "Finish & review →" : "Save & next →"}
         </button>
@@ -262,10 +265,25 @@ export default function App() {
           <span>~45 minutes</span><span>·</span><span>Return anytime</span><span>·</span><span>{camps.length} campaigns</span>
         </div>
       </div>
+      {profile && Object.keys(scores).length > 0 && (
+        <div style={{...css.card,marginBottom:"12px"}}>
+          <div style={{...css.body,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontSize:"14px",fontWeight:"500"}}>Welcome back, {profile.name}</div>
+              <div style={{fontSize:"12px",color:"var(--color-text-secondary)",marginTop:"2px"}}>{Object.keys(scores).length} of {camps.length} scored</div>
+            </div>
+            <button style={css.btnP} onClick={()=>{
+              const first = order.findIndex(id => !scores[id])
+              setIdx(first === -1 ? 0 : first)
+              setScreen("scoring")
+            }}>Resume scoring →</button>
+          </div>
+        </div>
+      )}
       <div style={css.card}>
         <div style={css.body}>
           <div style={{marginBottom:"14px"}}>
-            <div style={css.label}>Your name</div>
+            <div style={css.label}>{profile ? "Start as someone else" : "Your name"}</div>
             <input style={css.inp} value={nameIn} onChange={e=>setNameIn(e.target.value)} placeholder="First name is fine"
               onKeyDown={e=>e.key==="Enter"&&start()}/>
           </div>
@@ -296,7 +314,8 @@ export default function App() {
   if (screen==="scoring" && camp) return (
     <ScoreCard key={camp.id} camp={camp} existing={scores[camp.id]} idx={idx} total={order.length} pct={pct}
       onSave={saveScore}
-      onNext={() => { if (idx < order.length-1) setIdx(idx+1); else setScreen("review") }}/>
+      onNext={() => { if (idx < order.length-1) setIdx(idx+1); else setScreen("review") }}
+      onHome={() => setScreen("welcome")}/>
   )
 
   // ── REVIEW ──
