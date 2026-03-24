@@ -161,23 +161,26 @@ export default function App() {
 
   useEffect(()=>{
     ;(async()=>{
-      const c = await api("/api/campaigns")
-      setCamps(c)
-      const scorerId = localStorage.getItem("rs_scorer_id")
-      if (scorerId) {
-        try {
-          const prof = await api(`/api/profile/${scorerId}`)
-          const sc = await api(`/api/scores/${scorerId}`)
-          setProfile({ id: prof.id, name: prof.name, role: prof.role }); setScores(sc)
-          const savedOrd = localStorage.getItem("rs_order")
-          const o = savedOrd ? JSON.parse(savedOrd) : shuffle(c.map(x=>x.id))
-          if (!savedOrd) localStorage.setItem("rs_order", JSON.stringify(o))
-          setOrder(o)
-          const first = o.findIndex(id => !sc[id])
-          setIdx(first === -1 ? o.length : first)
-          setScreen(first === -1 ? "complete" : "scoring")
-        } catch { localStorage.removeItem("rs_scorer_id"); setScreen("welcome") }
-      } else { setScreen("welcome") }
+      try {
+        const c = await api("/api/campaigns")
+        if (!Array.isArray(c)) throw new Error("bad response")
+        setCamps(c)
+        const scorerId = localStorage.getItem("rs_scorer_id")
+        if (scorerId) {
+          try {
+            const prof = await api(`/api/profile/${scorerId}`)
+            const sc = await api(`/api/scores/${scorerId}`)
+            setProfile({ id: prof.id, name: prof.name, role: prof.role }); setScores(sc)
+            const savedOrd = localStorage.getItem("rs_order")
+            const o = savedOrd ? JSON.parse(savedOrd) : shuffle(c.map(x=>x.id))
+            if (!savedOrd) localStorage.setItem("rs_order", JSON.stringify(o))
+            setOrder(o)
+            const first = o.findIndex(id => !sc[id])
+            setIdx(first === -1 ? o.length : first)
+            setScreen(first === -1 ? "complete" : "scoring")
+          } catch { localStorage.removeItem("rs_scorer_id"); setScreen("welcome") }
+        } else { setScreen("welcome") }
+      } catch { setScreen("error") }
     })()
   },[])
 
@@ -237,6 +240,14 @@ export default function App() {
   if (screen==="loading") return (
     <div style={{...css.page,display:"flex",alignItems:"center",justifyContent:"center",height:"200px"}}>
       <span style={{fontSize:"13px",color:"var(--color-text-tertiary)"}}>Loading RalphScore…</span>
+    </div>
+  )
+
+  // ── ERROR ──
+  if (screen==="error") return (
+    <div style={{...css.page,display:"flex",alignItems:"center",justifyContent:"center",height:"200px",flexDirection:"column",gap:"12px"}}>
+      <span style={{fontSize:"13px",color:"var(--color-text-secondary)"}}>Could not connect to the server.</span>
+      <button style={css.btnS} onClick={()=>{ setScreen("loading"); window.location.reload() }}>Retry</button>
     </div>
   )
 
