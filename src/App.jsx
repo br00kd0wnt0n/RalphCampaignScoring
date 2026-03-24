@@ -52,6 +52,18 @@ const css = {
   imgBox: { width:"100%", height:"180px", background:"var(--color-background-tertiary)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"6px", fontSize:"12px", color:"var(--color-text-tertiary)" },
 }
 
+// ── VIDEO EMBED HELPER ──────────────────────────────────────────────────────
+function getEmbedUrl(url) {
+  if (!url) return null
+  // YouTube: youtu.be/ID or youtube.com/watch?v=ID
+  let m = url.match(/youtu\.be\/([^?&]+)/) || url.match(/youtube\.com\/watch\?v=([^&]+)/) || url.match(/youtube\.com\/embed\/([^?&]+)/)
+  if (m) return `https://www.youtube.com/embed/${m[1]}`
+  // Vimeo
+  m = url.match(/vimeo\.com\/(\d+)/)
+  if (m) return `https://player.vimeo.com/video/${m[1]}`
+  return null
+}
+
 // ── SCORING CARD (local dim state) ──────────────────────────────────────────
 function ScoreCard({ camp, existing, idx, total, pct, onSave, onNext, onHome }) {
   const init = () => { const d={}; DIMS.forEach(dim => { d[dim.id] = existing?.dims?.[dim.id] ?? null }); return d }
@@ -71,12 +83,17 @@ function ScoreCard({ camp, existing, idx, total, pct, onSave, onNext, onHome }) 
       <div style={css.prog}><div style={{...css.bar, width:`${pct}%`}}/></div>
 
       <div style={css.card}>
-        {camp.imageUrl
-          ? <img src={camp.imageUrl} alt={camp.brand} style={{width:"100%",height:"200px",objectFit:"cover",display:"block"}}/>
-          : <div style={css.imgBox}>
-              <span>Image to be added</span>
-              <a href={camp.link} target="_blank" rel="noreferrer" style={{color:"var(--color-text-info)",fontSize:"12px"}}>Watch campaign →</a>
+        {getEmbedUrl(camp.videoUrl)
+          ? <div style={{position:"relative",width:"100%",paddingBottom:"56.25%",background:"#000"}}>
+              <iframe src={getEmbedUrl(camp.videoUrl)} style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"none"}}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen/>
             </div>
+          : camp.imageUrl
+            ? <img src={camp.imageUrl} alt={camp.brand} style={{width:"100%",height:"200px",objectFit:"cover",display:"block"}}/>
+            : <div style={css.imgBox}>
+                <span>Media to be added</span>
+                <a href={camp.link} target="_blank" rel="noreferrer" style={{color:"var(--color-text-info)",fontSize:"12px"}}>Watch campaign →</a>
+              </div>
         }
         <div style={css.body}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"8px",marginBottom:"6px"}}>
@@ -134,15 +151,25 @@ function ScoreCard({ camp, existing, idx, total, pct, onSave, onNext, onHome }) 
   )
 }
 
-// ── IMAGE EDITOR (admin) ──────────────────────────────────────────────────────
-function ImgEdit({ camp, onSave }) {
-  const [url, setUrl] = useState(camp.imageUrl || "")
+// ── MEDIA EDITOR (admin) ─────────────────────────────────────────────────────
+function MediaEdit({ camp, onSave }) {
+  const [imgUrl, setImgUrl] = useState(camp.imageUrl || "")
+  const [vidUrl, setVidUrl] = useState(camp.videoUrl || "")
   const [ok, setOk] = useState(false)
-  const save = async () => { await onSave(camp.id, url); setOk(true); setTimeout(()=>setOk(false),2000) }
+  const save = async () => { await onSave(camp.id, imgUrl, vidUrl); setOk(true); setTimeout(()=>setOk(false),2000) }
   return (
-    <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-      <input style={{...css.inp,flex:1,fontSize:"12px",padding:"8px 10px"}} value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://..."/>
-      <button style={{...css.btnS,padding:"8px 12px",fontSize:"12px",whiteSpace:"nowrap"}} onClick={save}>{ok?"✓ Saved":"Save"}</button>
+    <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
+      <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+        <span style={{fontSize:"11px",color:"var(--color-text-tertiary)",width:"40px",flexShrink:0}}>Image</span>
+        <input style={{...css.inp,flex:1,fontSize:"12px",padding:"8px 10px"}} value={imgUrl} onChange={e=>setImgUrl(e.target.value)} placeholder="https://... (jpg, png, webp)"/>
+      </div>
+      <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+        <span style={{fontSize:"11px",color:"var(--color-text-tertiary)",width:"40px",flexShrink:0}}>Video</span>
+        <input style={{...css.inp,flex:1,fontSize:"12px",padding:"8px 10px"}} value={vidUrl} onChange={e=>setVidUrl(e.target.value)} placeholder="https://youtube.com/... or https://vimeo.com/..."/>
+      </div>
+      <div style={{display:"flex",justifyContent:"flex-end"}}>
+        <button style={{...css.btnS,padding:"8px 12px",fontSize:"12px",whiteSpace:"nowrap"}} onClick={save}>{ok?"✓ Saved":"Save"}</button>
+      </div>
     </div>
   )
 }
@@ -160,7 +187,7 @@ export default function App() {
   const [roleIn,   setRoleIn]   = useState("")
   const [unlocked, setUnlocked] = useState(false)
   const [passIn,   setPassIn]   = useState("")
-  const [newC,     setNewC]     = useState({brand:"",campaign:"",year:"2024",territory:"brand",platform:"",agency:"",stat:"",note:"",scoring:"",link:"",imageUrl:"",quality:"strong"})
+  const [newC,     setNewC]     = useState({brand:"",campaign:"",year:"2024",territory:"brand",platform:"",agency:"",stat:"",note:"",scoring:"",link:"",imageUrl:"",videoUrl:"",quality:"strong"})
 
   useEffect(()=>{
     ;(async()=>{
@@ -220,10 +247,10 @@ export default function App() {
     setScreen("team")
   }
 
-  const updateImg = async (id, url) => {
-    const u = camps.map(c => c.id===id ? {...c,imageUrl:url} : c)
+  const updateMedia = async (id, imageUrl, videoUrl) => {
+    const u = camps.map(c => c.id===id ? {...c, imageUrl, videoUrl} : c)
     setCamps(u)
-    await api(`/api/campaigns/${id}/image`, { method:"PUT", body:JSON.stringify({ imageUrl:url }) })
+    await api(`/api/campaigns/${id}/media`, { method:"PUT", body:JSON.stringify({ imageUrl, videoUrl }) })
   }
 
   const addCamp = async () => {
@@ -231,7 +258,7 @@ export default function App() {
     const camp = {...newC, id:`c_${Date.now()}`}
     setCamps([...camps, camp])
     await api("/api/campaigns", { method:"POST", body:JSON.stringify(camp) })
-    setNewC({brand:"",campaign:"",year:"2024",territory:"brand",platform:"",agency:"",stat:"",note:"",scoring:"",link:"",imageUrl:"",quality:"strong"})
+    setNewC({brand:"",campaign:"",year:"2024",territory:"brand",platform:"",agency:"",stat:"",note:"",scoring:"",link:"",imageUrl:"",videoUrl:"",quality:"strong"})
   }
 
   const camp = camps.find(c => c.id === order[idx])
@@ -483,13 +510,15 @@ export default function App() {
         </div>
       ) : (
         <>
-          <div style={css.label}>Campaign images</div>
-          <div style={{...css.sub,marginBottom:"12px"}}>Paste an image URL for each campaign. Use direct image links (jpg, png, webp).</div>
+          <div style={css.label}>Campaign media</div>
+          <div style={{...css.sub,marginBottom:"12px"}}>Add an image and/or video URL for each campaign. YouTube and Vimeo links will embed automatically.</div>
           {camps.map(c=>(
             <div key={c.id} style={{...css.card,marginBottom:"8px"}}>
               <div style={{...css.body,padding:"10px 14px"}}>
-                <div style={{fontSize:"13px",fontWeight:"500",marginBottom:"6px"}}>{c.brand} — <span style={{fontWeight:"400",color:"var(--color-text-secondary)"}}>{c.campaign}</span></div>
-                <ImgEdit camp={c} onSave={updateImg}/>
+                <div style={{fontSize:"13px",fontWeight:"500",marginBottom:"6px"}}>{c.brand} — <span style={{fontWeight:"400",color:"var(--color-text-secondary)"}}>{c.campaign}</span>
+                  {(c.imageUrl||c.videoUrl) && <span style={{fontSize:"11px",color:"var(--color-text-success)",marginLeft:"6px"}}>✓</span>}
+                </div>
+                <MediaEdit camp={c} onSave={updateMedia}/>
               </div>
             </div>
           ))}
@@ -497,7 +526,7 @@ export default function App() {
           <div style={{...css.card,marginTop:"24px"}}>
             <div style={css.body}>
               <div style={{...css.h2,marginBottom:"16px"}}>Add campaign</div>
-              {[["brand","Brand"],["campaign","Campaign name"],["year","Year"],["agency","Agency"],["platform","Platform(s)"],["stat","Key stat"],["note","Context (1-2 lines)"],["scoring","Scoring prompt"],["link","Watch link"],["imageUrl","Image URL"]].map(([f,l])=>(
+              {[["brand","Brand"],["campaign","Campaign name"],["year","Year"],["agency","Agency"],["platform","Platform(s)"],["stat","Key stat"],["note","Context (1-2 lines)"],["scoring","Scoring prompt"],["link","Watch link"],["imageUrl","Image URL"],["videoUrl","Video URL (YouTube/Vimeo)"]].map(([f,l])=>(
                 <div key={f} style={{marginBottom:"10px"}}>
                   <div style={css.label}>{l}</div>
                   <input style={css.inp} value={newC[f]} onChange={e=>setNewC({...newC,[f]:e.target.value})}/>

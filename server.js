@@ -141,6 +141,17 @@ app.put("/api/campaigns/:id/image", async (req, res) => {
   res.json(data)
 })
 
+// Admin: update campaign media (image + video)
+app.put("/api/campaigns/:id/media", async (req, res) => {
+  const { imageUrl, videoUrl } = req.body
+  const { rows } = await query("SELECT data FROM campaigns WHERE id = $1", [req.params.id])
+  if (!rows.length) return res.status(404).json({ error: "not found" })
+
+  const data = { ...rows[0].data, imageUrl, videoUrl }
+  await query("UPDATE campaigns SET data = $1 WHERE id = $2", [JSON.stringify(data), req.params.id])
+  res.json(data)
+})
+
 // Admin: add new campaign
 app.post("/api/campaigns", async (req, res) => {
   const camp = req.body
