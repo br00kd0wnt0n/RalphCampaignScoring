@@ -83,18 +83,28 @@ function ScoreCard({ camp, existing, idx, total, pct, onSave, onNext, onHome }) 
       <div style={css.prog}><div style={{...css.bar, width:`${pct}%`}}/></div>
 
       <div style={css.card}>
-        {getEmbedUrl(camp.videoUrl)
-          ? <div style={{position:"relative",width:"100%",paddingBottom:"56.25%",background:"#000"}}>
-              <iframe src={getEmbedUrl(camp.videoUrl)} style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"none"}}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen/>
+        {(() => {
+          const imgs = camp.images && camp.images.length ? camp.images : camp.imageUrl ? [camp.imageUrl] : []
+          const hasVideo = !!getEmbedUrl(camp.videoUrl)
+          const hasImages = imgs.length > 0
+          if (!hasVideo && !hasImages) return (
+            <div style={css.imgBox}>
+              <span>Media to be added</span>
+              <a href={camp.link} target="_blank" rel="noreferrer" style={{color:"var(--color-text-info)",fontSize:"12px"}}>Watch campaign →</a>
             </div>
-          : camp.imageUrl
-            ? <img src={camp.imageUrl} alt={camp.brand} style={{width:"100%",height:"200px",objectFit:"cover",display:"block"}}/>
-            : <div style={css.imgBox}>
-                <span>Media to be added</span>
-                <a href={camp.link} target="_blank" rel="noreferrer" style={{color:"var(--color-text-info)",fontSize:"12px"}}>Watch campaign →</a>
-              </div>
-        }
+          )
+          return (
+            <div>
+              {hasVideo && (
+                <div style={{position:"relative",width:"100%",paddingBottom:"56.25%",background:"#000"}}>
+                  <iframe src={getEmbedUrl(camp.videoUrl)} style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"none"}}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen/>
+                </div>
+              )}
+              {hasImages && <ImageGallery images={imgs} alt={camp.brand}/>}
+            </div>
+          )
+        })()}
         <div style={css.body}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"8px",marginBottom:"6px"}}>
             <div>
@@ -189,23 +199,63 @@ function CampDetail({ camp }) {
 
 // ── MEDIA EDITOR (admin) ─────────────────────────────────────────────────────
 function MediaEdit({ camp, onSave }) {
-  const [imgUrl, setImgUrl] = useState(camp.imageUrl || "")
+  const [images, setImages] = useState(() => {
+    const arr = camp.images && camp.images.length ? [...camp.images] : camp.imageUrl ? [camp.imageUrl] : [""]
+    return arr
+  })
   const [vidUrl, setVidUrl] = useState(camp.videoUrl || "")
   const [ok, setOk] = useState(false)
-  const save = async () => { await onSave(camp.id, imgUrl, vidUrl); setOk(true); setTimeout(()=>setOk(false),2000) }
+  const save = async () => {
+    const cleaned = images.map(u=>u.trim()).filter(Boolean)
+    await onSave(camp.id, cleaned, vidUrl)
+    setOk(true); setTimeout(()=>setOk(false),2000)
+  }
+  const updateImage = (i, val) => { const n=[...images]; n[i]=val; setImages(n) }
+  const addSlot = () => setImages([...images, ""])
+  const removeSlot = (i) => { const n=images.filter((_,j)=>j!==i); setImages(n.length?n:[""])}
   return (
     <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
-      <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-        <span style={{fontSize:"11px",color:"var(--color-text-tertiary)",width:"40px",flexShrink:0}}>Image</span>
-        <input style={{...css.inp,flex:1,fontSize:"12px",padding:"8px 10px"}} value={imgUrl} onChange={e=>setImgUrl(e.target.value)} placeholder="https://... (jpg, png, webp)"/>
+      {images.map((url,i) => (
+        <div key={i} style={{display:"flex",gap:"8px",alignItems:"center"}}>
+          <span style={{fontSize:"11px",color:"var(--color-text-tertiary)",width:"52px",flexShrink:0}}>Image {i+1}</span>
+          <input style={{...css.inp,flex:1,fontSize:"12px",padding:"8px 10px"}} value={url} onChange={e=>updateImage(i,e.target.value)} placeholder="https://... (jpg, png, webp)"/>
+          {images.length > 1 && <button onClick={()=>removeSlot(i)} style={{background:"none",border:"none",color:"var(--color-text-tertiary)",cursor:"pointer",fontSize:"16px",padding:"4px"}}>×</button>}
+        </div>
+      ))}
+      <div style={{display:"flex",justifyContent:"flex-start"}}>
+        <button onClick={addSlot} style={{background:"none",border:"none",color:"var(--color-text-info)",cursor:"pointer",fontSize:"12px",padding:"2px 0"}}>+ Add another image</button>
       </div>
       <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-        <span style={{fontSize:"11px",color:"var(--color-text-tertiary)",width:"40px",flexShrink:0}}>Video</span>
+        <span style={{fontSize:"11px",color:"var(--color-text-tertiary)",width:"52px",flexShrink:0}}>Video</span>
         <input style={{...css.inp,flex:1,fontSize:"12px",padding:"8px 10px"}} value={vidUrl} onChange={e=>setVidUrl(e.target.value)} placeholder="https://youtube.com/... or https://vimeo.com/..."/>
       </div>
       <div style={{display:"flex",justifyContent:"flex-end"}}>
         <button style={{...css.btnS,padding:"8px 12px",fontSize:"12px",whiteSpace:"nowrap"}} onClick={save}>{ok?"✓ Saved":"Save"}</button>
       </div>
+    </div>
+  )
+}
+
+// ── IMAGE GALLERY (scoring card) ────────────────────────────────────────────
+function ImageGallery({ images, alt }) {
+  const [cur, setCur] = useState(0)
+  if (!images || !images.length) return null
+  return (
+    <div style={{position:"relative"}}>
+      <img src={images[cur]} alt={alt} style={{width:"100%",height:"220px",objectFit:"cover",display:"block"}}/>
+      {images.length > 1 && (
+        <>
+          <button onClick={()=>setCur((cur-1+images.length)%images.length)}
+            style={{position:"absolute",left:"8px",top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,.5)",color:"#fff",border:"none",borderRadius:"50%",width:"32px",height:"32px",cursor:"pointer",fontSize:"16px"}}>‹</button>
+          <button onClick={()=>setCur((cur+1)%images.length)}
+            style={{position:"absolute",right:"8px",top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,.5)",color:"#fff",border:"none",borderRadius:"50%",width:"32px",height:"32px",cursor:"pointer",fontSize:"16px"}}>›</button>
+          <div style={{position:"absolute",bottom:"8px",left:"50%",transform:"translateX(-50%)",display:"flex",gap:"6px"}}>
+            {images.map((_,i) => (
+              <div key={i} onClick={()=>setCur(i)} style={{width:"8px",height:"8px",borderRadius:"50%",background:i===cur?"#fff":"rgba(255,255,255,.4)",cursor:"pointer"}}/>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -283,10 +333,11 @@ export default function App() {
     setScreen("team")
   }
 
-  const updateMedia = async (id, imageUrl, videoUrl) => {
-    const u = camps.map(c => c.id===id ? {...c, imageUrl, videoUrl} : c)
+  const updateMedia = async (id, images, videoUrl) => {
+    const imageUrl = images.length ? images[0] : ""
+    const u = camps.map(c => c.id===id ? {...c, imageUrl, images, videoUrl} : c)
     setCamps(u)
-    await api(`/api/campaigns/${id}/media`, { method:"PUT", body:JSON.stringify({ imageUrl, videoUrl }) })
+    await api(`/api/campaigns/${id}/media`, { method:"PUT", body:JSON.stringify({ imageUrl, images, videoUrl }) })
   }
 
   const addCamp = async () => {
@@ -552,7 +603,15 @@ export default function App() {
             <div key={c.id} style={{...css.card,marginBottom:"8px"}}>
               <div style={{...css.body,padding:"10px 14px"}}>
                 <div style={{fontSize:"13px",fontWeight:"500",marginBottom:"6px"}}>{c.brand} — <span style={{fontWeight:"400",color:"var(--color-text-secondary)"}}>{c.campaign} · {c.year}</span>
-                  {(c.imageUrl||c.videoUrl) && <span style={{fontSize:"11px",color:"var(--color-text-success)",marginLeft:"6px"}}>✓ media</span>}
+                  {(()=>{
+                    const imgCount = c.images?.length || (c.imageUrl ? 1 : 0)
+                    const hasVid = !!c.videoUrl
+                    if (!imgCount && !hasVid) return null
+                    const parts = []
+                    if (imgCount) parts.push(`${imgCount} img${imgCount>1?"s":""}`)
+                    if (hasVid) parts.push("video")
+                    return <span style={{fontSize:"11px",color:"var(--color-text-success)",marginLeft:"6px"}}>✓ {parts.join(" + ")}</span>
+                  })()}
                 </div>
                 <CampDetail camp={c}/>
                 <MediaEdit camp={c} onSave={updateMedia}/>
