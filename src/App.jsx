@@ -83,63 +83,70 @@ function ScoreCard({ camp, existing, idx, total, pct, onSave, onNext, onHome }) 
       <div style={css.prog}><div style={{...css.bar, width:`${pct}%`}}/></div>
 
       <div style={css.card}>
-        {(() => {
-          const imgs = camp.images && camp.images.length ? camp.images : camp.imageUrl ? [camp.imageUrl] : []
-          const hasVideo = !!getEmbedUrl(camp.videoUrl)
-          const hasImages = imgs.length > 0
-          if (!hasVideo && !hasImages) return (
-            <div style={css.imgBox}>
-              <span>Media to be added</span>
-              <a href={camp.link} target="_blank" rel="noreferrer" style={{color:"var(--color-text-info)",fontSize:"12px"}}>Watch campaign →</a>
-            </div>
-          )
-          return (
-            <div>
-              {hasVideo && (
-                <div style={{position:"relative",width:"100%",paddingBottom:"56.25%",background:"#000"}}>
-                  <iframe src={getEmbedUrl(camp.videoUrl)} style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"none"}}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen/>
-                </div>
-              )}
-              {hasImages && <ImageGallery images={imgs} alt={camp.brand}/>}
-            </div>
-          )
-        })()}
+        <MediaMatrix images={camp.images && camp.images.length ? camp.images : camp.imageUrl ? [camp.imageUrl] : []}
+          videoUrl={camp.videoUrl} link={camp.link} alt={camp.brand}/>
         <div style={css.body}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"8px",marginBottom:"6px"}}>
+          {/* Campaign header */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"8px",marginBottom:"12px",paddingBottom:"12px",borderBottom:"1px solid var(--color-border-tertiary)"}}>
             <div>
-              <div style={{fontSize:"17px",fontWeight:"500"}}>{camp.brand}</div>
-              <div style={{fontSize:"13px",color:"var(--color-text-secondary)",fontStyle:"italic",marginTop:"1px"}}>"{camp.campaign}" · {camp.year}</div>
+              <div style={{fontSize:"20px",fontWeight:"600",letterSpacing:"-0.01em"}}>{camp.brand}</div>
+              <div style={{fontSize:"14px",color:"var(--color-text-secondary)",marginTop:"3px"}}>
+                <span style={{fontStyle:"italic"}}>"{camp.campaign}"</span>
+                <span style={{margin:"0 6px",color:"var(--color-text-tertiary)"}}>·</span>
+                <span>{camp.year}</span>
+              </div>
             </div>
-            <span style={{...css.pill,background:qc.bg,color:qc.color,flexShrink:0,marginTop:"2px"}}>{QLABELS[camp.quality]}</span>
+            <span style={{...css.pill,background:qc.bg,color:qc.color,flexShrink:0,marginTop:"4px",fontSize:"11px",padding:"3px 10px"}}>{QLABELS[camp.quality]}</span>
           </div>
-          <div style={{display:"flex",gap:"4px",flexWrap:"wrap",marginBottom:"12px"}}>
-            <span style={css.tag}>{camp.territory}</span>
-            <span style={css.tag}>{camp.agency}</span>
+
+          {/* Meta tags */}
+          <div style={{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"14px"}}>
+            {camp.territory && <span style={css.tag}>{camp.territory}</span>}
+            {camp.platform && <span style={css.tag}>{camp.platform}</span>}
+            {camp.agency && <span style={css.tag}>{camp.agency}</span>}
           </div>
-          {camp.note && <div style={css.val}>{camp.note}</div>}
-          <div style={css.label}>Key stat</div>
-          <div style={{...css.val,marginBottom:"14px"}}>{camp.stat}</div>
-          <div style={css.label}>Score this</div>
+
+          {/* Context */}
+          {camp.note && <>
+            <div style={{...css.label,marginBottom:"4px"}}>Context</div>
+            <div style={{...css.val,marginBottom:"14px",lineHeight:"1.7"}}>{camp.note}</div>
+          </>}
+
+          {/* Key stat - highlighted */}
+          <div style={{background:"var(--color-background-primary)",border:"1px solid var(--color-border-tertiary)",borderRadius:"8px",padding:"12px 14px",marginBottom:"14px"}}>
+            <div style={{...css.label,marginBottom:"4px"}}>Key stat</div>
+            <div style={{fontSize:"13px",color:"var(--color-text-primary)",lineHeight:"1.65",fontWeight:"500"}}>{camp.stat}</div>
+          </div>
+
+          {/* Scoring prompt */}
+          <div style={{...css.label,marginBottom:"4px"}}>Score this</div>
           <div style={css.prompt}>{camp.scoring}</div>
         </div>
       </div>
 
+      {/* ── SCORING TABLE ── */}
       <div style={css.card}>
         <div style={css.body}>
-          {DIMS.map(dim => (
-            <div key={dim.id} style={css.dimRow}>
-              <div style={css.label}>{dim.label}</div>
-              <div style={css.dimBtns}>
-                {[1,2,3,4,5].map(n => (
-                  <button key={n} onClick={()=>setDims({...dims,[dim.id]:n})}
-                    style={{...css.dimBtn,...(dims[dim.id]===n?css.dimBtnA:{})}}>{n}</button>
-                ))}
+          <div style={{fontSize:"16px",fontWeight:"600",color:"var(--color-text-primary)",marginBottom:"4px"}}>Score this campaign</div>
+          <div style={{fontSize:"12px",color:"var(--color-text-secondary)",marginBottom:"18px"}}>Rate each dimension from 1 (low) to 5 (high)</div>
+          <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+            {DIMS.map(dim => (
+              <div key={dim.id} style={{padding:"12px 14px",background:"var(--color-background-primary)",borderRadius:"8px",border:"1px solid var(--color-border-tertiary)"}}>
+                <div style={{fontSize:"14px",fontWeight:"600",color:"var(--color-text-primary)",marginBottom:"6px"}}>{dim.label}</div>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:"8px"}}>
+                  <span style={{fontSize:"11px",fontWeight:"500",color:"#b45309",background:"#fef3c7",padding:"2px 8px",borderRadius:"4px"}}>{dim.lo}</span>
+                  <span style={{fontSize:"11px",fontWeight:"500",color:"#047857",background:"#d1fae5",padding:"2px 8px",borderRadius:"4px"}}>{dim.hi}</span>
+                </div>
+                <div style={{display:"flex",gap:"6px"}}>
+                  {[1,2,3,4,5].map(n => (
+                    <button key={n} onClick={()=>setDims({...dims,[dim.id]:n})}
+                      style={{...css.dimBtn,...(dims[dim.id]===n?css.dimBtnA:{})}}>{n}</button>
+                  ))}
+                </div>
               </div>
-              <div style={css.dimEnds}><span>{dim.lo}</span><span>{dim.hi}</span></div>
-            </div>
-          ))}
-          <div>
+            ))}
+          </div>
+          <div style={{marginTop:"16px"}}>
             <div style={css.label}>Note (optional)</div>
             <textarea value={note} onChange={e=>setNote(e.target.value)}
               placeholder="Any reaction, disagreement, or reasoning..."
@@ -236,26 +243,48 @@ function MediaEdit({ camp, onSave }) {
   )
 }
 
-// ── IMAGE GALLERY (scoring card) ────────────────────────────────────────────
-function ImageGallery({ images, alt }) {
-  const [cur, setCur] = useState(0)
-  if (!images || !images.length) return null
+// ── MEDIA MATRIX (scoring card) ─────────────────────────────────────────────
+function MediaMatrix({ images, videoUrl, link, alt }) {
+  const imgs = images && images.length ? images : []
+  const embedUrl = getEmbedUrl(videoUrl)
+  const items = []
+  if (embedUrl) items.push({ type:"video", embedUrl, videoUrl })
+  imgs.forEach((src,i) => items.push({ type:"image", src, idx:i }))
+  if (link && !embedUrl) items.push({ type:"link", url:link })
+  if (items.length === 0) return (
+    <div style={css.imgBox}>
+      <span>Media to be added</span>
+      {link && <a href={link} target="_blank" rel="noreferrer" style={{color:"var(--color-text-info)",fontSize:"12px"}}>Watch campaign →</a>}
+    </div>
+  )
+  const cols = items.length === 1 ? 1 : 2
   return (
-    <div style={{position:"relative"}}>
-      <img src={images[cur]} alt={alt} style={{width:"100%",height:"220px",objectFit:"cover",display:"block"}}/>
-      {images.length > 1 && (
-        <>
-          <button onClick={()=>setCur((cur-1+images.length)%images.length)}
-            style={{position:"absolute",left:"8px",top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,.5)",color:"#fff",border:"none",borderRadius:"50%",width:"32px",height:"32px",cursor:"pointer",fontSize:"16px"}}>‹</button>
-          <button onClick={()=>setCur((cur+1)%images.length)}
-            style={{position:"absolute",right:"8px",top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,.5)",color:"#fff",border:"none",borderRadius:"50%",width:"32px",height:"32px",cursor:"pointer",fontSize:"16px"}}>›</button>
-          <div style={{position:"absolute",bottom:"8px",left:"50%",transform:"translateX(-50%)",display:"flex",gap:"6px"}}>
-            {images.map((_,i) => (
-              <div key={i} onClick={()=>setCur(i)} style={{width:"8px",height:"8px",borderRadius:"50%",background:i===cur?"#fff":"rgba(255,255,255,.4)",cursor:"pointer"}}/>
-            ))}
-          </div>
-        </>
-      )}
+    <div style={{padding:"12px 12px 0"}}>
+      <div style={{display:"grid",gridTemplateColumns:`repeat(${cols}, 1fr)`,gap:"8px"}}>
+        {items.map((item, i) => {
+          if (item.type === "video") return (
+            <div key={`v${i}`} style={{position:"relative",paddingBottom:"56.25%",background:"#000",borderRadius:"8px",overflow:"hidden",gridColumn:cols===2&&imgs.length===0?"1 / -1":"auto"}}>
+              <iframe src={item.embedUrl} style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"none"}}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen/>
+            </div>
+          )
+          if (item.type === "image") return (
+            <div key={`i${item.idx}`} style={{borderRadius:"8px",overflow:"hidden",position:"relative"}}>
+              <img src={item.src} alt={`${alt} ${item.idx+1}`} style={{width:"100%",height:"160px",objectFit:"cover",display:"block"}}/>
+              {imgs.length > 1 && <div style={{position:"absolute",bottom:"6px",left:"6px",fontSize:"10px",background:"rgba(0,0,0,.6)",color:"#fff",padding:"2px 8px",borderRadius:"4px"}}>{item.idx+1}/{imgs.length}</div>}
+            </div>
+          )
+          return (
+            <a key={`l${i}`} href={item.url} target="_blank" rel="noreferrer" style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"160px",borderRadius:"8px",background:"var(--color-background-tertiary)",textDecoration:"none",gap:"8px",border:"1px solid var(--color-border-tertiary)"}}>
+              <span style={{fontSize:"24px"}}>🔗</span>
+              <span style={{fontSize:"12px",color:"var(--color-text-info)"}}>Watch campaign →</span>
+            </a>
+          )
+        })}
+      </div>
+      {link && <div style={{textAlign:"right",marginTop:"6px",marginBottom:"4px"}}>
+        <a href={link} target="_blank" rel="noreferrer" style={{fontSize:"11px",color:"var(--color-text-info)",textDecoration:"none"}}>Open campaign link ↗</a>
+      </div>}
     </div>
   )
 }
@@ -599,25 +628,35 @@ export default function App() {
         <>
           <div style={css.label}>Campaign media</div>
           <div style={{...css.sub,marginBottom:"12px"}}>Add an image and/or video URL for each campaign. YouTube and Vimeo links will embed automatically.</div>
-          {camps.map(c=>(
+          {camps.map(c=>{
+            const imgCount = c.images?.length || (c.imageUrl ? 1 : 0)
+            const hasVid = !!c.videoUrl
+            const hasMedia = imgCount > 0 || hasVid
+            return (
             <div key={c.id} style={{...css.card,marginBottom:"8px"}}>
               <div style={{...css.body,padding:"10px 14px"}}>
                 <div style={{fontSize:"13px",fontWeight:"500",marginBottom:"6px"}}>{c.brand} — <span style={{fontWeight:"400",color:"var(--color-text-secondary)"}}>{c.campaign} · {c.year}</span>
-                  {(()=>{
-                    const imgCount = c.images?.length || (c.imageUrl ? 1 : 0)
-                    const hasVid = !!c.videoUrl
-                    if (!imgCount && !hasVid) return null
+                  {hasMedia && (()=>{
                     const parts = []
                     if (imgCount) parts.push(`${imgCount} img${imgCount>1?"s":""}`)
                     if (hasVid) parts.push("video")
                     return <span style={{fontSize:"11px",color:"var(--color-text-success)",marginLeft:"6px"}}>✓ {parts.join(" + ")}</span>
                   })()}
                 </div>
+                {/* Media preview */}
+                {hasMedia && (
+                  <div style={{marginBottom:"10px",borderRadius:"8px",overflow:"hidden",border:"1px solid var(--color-border-tertiary)"}}>
+                    <MediaMatrix
+                      images={c.images && c.images.length ? c.images : c.imageUrl ? [c.imageUrl] : []}
+                      videoUrl={c.videoUrl} link={c.link} alt={c.brand}/>
+                  </div>
+                )}
                 <CampDetail camp={c}/>
                 <MediaEdit camp={c} onSave={updateMedia}/>
               </div>
             </div>
-          ))}
+            )
+          })}
 
           <div style={{...css.card,marginTop:"24px"}}>
             <div style={css.body}>
