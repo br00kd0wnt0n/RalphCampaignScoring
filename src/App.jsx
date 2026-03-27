@@ -25,35 +25,36 @@ const avg = vals => { const v = vals.filter(x => x != null && !isNaN(x)); return
 
 // --- brand ---
 const PINK = "#E6007E"
-const PINK_LIGHT = "rgba(230,0,126,0.12)"
+const PINK_GLOW = "rgba(217, 77, 143, 0.4)"
+const PINK_SUBTLE = "rgba(217, 77, 143, 0.15)"
 
 // --- styles ---
 const css = {
   page:   { fontFamily:"var(--font-sans)", padding:"0 0 40px", color:"var(--color-text-primary)" },
   hdr:    { fontSize:"11px", fontWeight:"600", textTransform:"uppercase", letterSpacing:".08em", color:PINK, marginBottom:"6px" },
-  h1:     { fontSize:"22px", fontWeight:"600", marginBottom:"4px" },
-  h2:     { fontSize:"16px", fontWeight:"500", marginBottom:"12px" },
+  h1:     { fontSize:"24px", fontWeight:"700", marginBottom:"4px", letterSpacing:"-0.02em" },
+  h2:     { fontSize:"16px", fontWeight:"600", marginBottom:"12px" },
   sub:    { fontSize:"14px", color:"var(--color-text-secondary)", lineHeight:"1.6", marginBottom:"16px" },
-  card:   { background:"var(--color-background-secondary)", border:"1px solid var(--color-border-tertiary)", borderRadius:"12px", overflow:"hidden", marginBottom:"10px" },
+  card:   { background:"rgba(255,255,255,0.03)", backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)", border:"1px solid rgba(255,255,255,0.05)", borderRadius:"12px", overflow:"hidden", marginBottom:"10px", transition:"box-shadow .2s" },
   body:   { padding:"16px" },
-  label:  { fontSize:"10px", fontWeight:"500", textTransform:"uppercase", letterSpacing:".05em", color:"var(--color-text-tertiary)", marginBottom:"4px" },
+  label:  { fontSize:"10px", fontWeight:"600", textTransform:"uppercase", letterSpacing:".06em", color:"var(--color-text-tertiary)", marginBottom:"4px" },
   val:    { fontSize:"13px", color:"var(--color-text-secondary)", lineHeight:"1.6", marginBottom:"12px" },
-  prompt: { fontSize:"14px", fontStyle:"italic", color:"var(--color-text-primary)", lineHeight:"1.65", padding:"14px 16px", background:"var(--color-background-primary)", borderRadius:"8px", borderLeft:`3px solid ${PINK}`, marginBottom:"0" },
-  inp:    { width:"100%", padding:"10px 12px", border:"1px solid var(--color-border-tertiary)", borderRadius:"8px", fontSize:"13px", background:"var(--color-background-secondary)", color:"var(--color-text-primary)", fontFamily:"var(--font-sans)", boxSizing:"border-box" },
-  btnP:   { background:PINK, color:"#fff", border:"none", borderRadius:"8px", padding:"10px 20px", fontSize:"13px", cursor:"pointer", fontFamily:"var(--font-sans)", fontWeight:"500" },
-  btnS:   { background:"transparent", color:"var(--color-text-secondary)", border:"1px solid var(--color-border-secondary)", borderRadius:"8px", padding:"10px 16px", fontSize:"13px", cursor:"pointer", fontFamily:"var(--font-sans)" },
-  tag:    { display:"inline-block", fontSize:"11px", padding:"2px 8px", borderRadius:"8px", background:"var(--color-background-tertiary)", color:"var(--color-text-secondary)", border:"1px solid var(--color-border-tertiary)", marginRight:"4px", marginBottom:"4px" },
+  prompt: { fontSize:"14px", fontStyle:"italic", color:"var(--color-text-primary)", lineHeight:"1.65", padding:"14px 16px", background:PINK_SUBTLE, borderRadius:"8px", borderLeft:`3px solid ${PINK}`, marginBottom:"0" },
+  inp:    { width:"100%", padding:"10px 12px", border:"1px solid var(--color-border-tertiary)", borderRadius:"8px", fontSize:"13px", background:"var(--color-background-secondary)", color:"var(--color-text-primary)", fontFamily:"var(--font-sans)", boxSizing:"border-box", outline:"none", transition:"border-color .15s" },
+  btnP:   { background:PINK, color:"#fff", border:"none", borderRadius:"8px", padding:"10px 20px", fontSize:"13px", cursor:"pointer", fontFamily:"var(--font-sans)", fontWeight:"600", boxShadow:`0 0 20px -5px ${PINK_GLOW}`, transition:"box-shadow .15s, transform .1s" },
+  btnS:   { background:"transparent", color:"var(--color-text-secondary)", border:"1px solid var(--color-border-secondary)", borderRadius:"8px", padding:"10px 16px", fontSize:"13px", cursor:"pointer", fontFamily:"var(--font-sans)", transition:"border-color .15s" },
+  tag:    { display:"inline-block", fontSize:"11px", padding:"2px 8px", borderRadius:"8px", background:"var(--color-background-tertiary)", color:"var(--color-text-secondary)", border:"1px solid rgba(255,255,255,0.05)", marginRight:"4px", marginBottom:"4px" },
   prog:   { height:"2px", background:"var(--color-border-tertiary)", borderRadius:"1px", margin:"0 0 16px" },
-  bar:    { height:"2px", background:PINK, borderRadius:"1px", transition:"width .4s" },
+  bar:    { height:"2px", background:PINK, borderRadius:"1px", transition:"width .4s", boxShadow:`0 0 8px ${PINK_GLOW}` },
   dimRow: { marginBottom:"18px" },
   dimBtns:{ display:"flex", gap:"6px", marginTop:"6px" },
-  dimBtn: { flex:1, padding:"10px 0", border:"1px solid var(--color-border-tertiary)", borderRadius:"6px", background:"var(--color-background-secondary)", color:"var(--color-text-secondary)", fontSize:"15px", fontWeight:"500", cursor:"pointer", fontFamily:"var(--font-mono)", transition:"all .1s" },
-  dimBtnA:{ background:PINK, color:"#fff", borderColor:PINK },
+  dimBtn: { flex:1, padding:"10px 0", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"6px", background:"rgba(255,255,255,0.03)", color:"var(--color-text-secondary)", fontSize:"15px", fontWeight:"500", cursor:"pointer", fontFamily:"var(--font-mono)", transition:"all .15s cubic-bezier(0.4,0,0.2,1)" },
+  dimBtnA:{ background:PINK, color:"#fff", borderColor:PINK, boxShadow:`0 0 12px -3px ${PINK_GLOW}` },
   dimEnds:{ display:"flex", justifyContent:"space-between", fontSize:"10px", color:"var(--color-text-tertiary)", marginTop:"5px" },
   navRow: { display:"flex", justifyContent:"space-between", alignItems:"center", gap:"8px", marginTop:"16px" },
   pill:   { fontSize:"10px", fontWeight:"500", padding:"2px 9px", borderRadius:"20px" },
-  score:  { fontSize:"28px", fontWeight:"500", fontFamily:"var(--font-mono)" },
-  imgBox: { width:"100%", height:"180px", background:"var(--color-background-tertiary)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"6px", fontSize:"12px", color:"var(--color-text-tertiary)" },
+  score:  { fontSize:"28px", fontWeight:"600", fontFamily:"var(--font-mono)", letterSpacing:"-0.02em" },
+  imgBox: { width:"100%", height:"180px", background:"rgba(255,255,255,0.03)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"6px", fontSize:"12px", color:"var(--color-text-tertiary)", border:"1px dashed rgba(255,255,255,0.08)", borderRadius:"8px" },
 }
 
 // ── VIDEO EMBED HELPER ──────────────────────────────────────────────────────
