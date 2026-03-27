@@ -55,8 +55,8 @@ const css = {
 // ── VIDEO EMBED HELPER ──────────────────────────────────────────────────────
 function getEmbedUrl(url) {
   if (!url) return null
-  // YouTube: youtu.be/ID or youtube.com/watch?v=ID
-  let m = url.match(/youtu\.be\/([^?&]+)/) || url.match(/youtube\.com\/watch\?v=([^&]+)/) || url.match(/youtube\.com\/embed\/([^?&]+)/)
+  // YouTube: youtu.be/ID, youtube.com/watch?v=ID, youtube.com/shorts/ID, youtube.com/embed/ID
+  let m = url.match(/youtu\.be\/([^?&]+)/) || url.match(/youtube\.com\/watch\?v=([^&]+)/) || url.match(/youtube\.com\/shorts\/([^?&]+)/) || url.match(/youtube\.com\/embed\/([^?&]+)/)
   if (m) return `https://www.youtube.com/embed/${m[1]}`
   // Vimeo
   m = url.match(/vimeo\.com\/(\d+)/)
@@ -269,9 +269,8 @@ function MediaMatrix({ images, videoUrl, link, alt }) {
             </div>
           )
           if (item.type === "image") return (
-            <div key={`i${item.idx}`} style={{borderRadius:"8px",overflow:"hidden",position:"relative"}}>
+            <div key={`i${item.idx}`} style={{borderRadius:"8px",overflow:"hidden"}}>
               <img src={item.src} alt={`${alt} ${item.idx+1}`} style={{width:"100%",height:"160px",objectFit:"cover",display:"block"}}/>
-              {imgs.length > 1 && <div style={{position:"absolute",bottom:"6px",left:"6px",fontSize:"10px",background:"rgba(0,0,0,.6)",color:"#fff",padding:"2px 8px",borderRadius:"4px"}}>{item.idx+1}/{imgs.length}</div>}
             </div>
           )
           return (
