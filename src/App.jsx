@@ -23,28 +23,32 @@ const api = async (path, opts) => { const r = await fetch(path, { headers:{"Cont
 const shuffle = a => { const b = [...a]; for (let i = b.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]] } return b }
 const avg = vals => { const v = vals.filter(x => x != null && !isNaN(x)); return v.length ? Math.round((v.reduce((a,b)=>a+b,0)/v.length)*10)/10 : null }
 
+// --- brand ---
+const PINK = "#E6007E"
+const PINK_LIGHT = "rgba(230,0,126,0.12)"
+
 // --- styles ---
 const css = {
   page:   { fontFamily:"var(--font-sans)", padding:"0 0 40px", color:"var(--color-text-primary)" },
-  hdr:    { fontSize:"11px", fontWeight:"500", textTransform:"uppercase", letterSpacing:".06em", color:"var(--color-text-tertiary)", marginBottom:"6px" },
-  h1:     { fontSize:"22px", fontWeight:"500", marginBottom:"4px" },
+  hdr:    { fontSize:"11px", fontWeight:"600", textTransform:"uppercase", letterSpacing:".08em", color:PINK, marginBottom:"6px" },
+  h1:     { fontSize:"22px", fontWeight:"600", marginBottom:"4px" },
   h2:     { fontSize:"16px", fontWeight:"500", marginBottom:"12px" },
   sub:    { fontSize:"14px", color:"var(--color-text-secondary)", lineHeight:"1.6", marginBottom:"16px" },
   card:   { background:"var(--color-background-secondary)", border:"1px solid var(--color-border-tertiary)", borderRadius:"12px", overflow:"hidden", marginBottom:"10px" },
   body:   { padding:"16px" },
   label:  { fontSize:"10px", fontWeight:"500", textTransform:"uppercase", letterSpacing:".05em", color:"var(--color-text-tertiary)", marginBottom:"4px" },
   val:    { fontSize:"13px", color:"var(--color-text-secondary)", lineHeight:"1.6", marginBottom:"12px" },
-  prompt: { fontSize:"14px", fontStyle:"italic", color:"var(--color-text-primary)", lineHeight:"1.65", padding:"14px 16px", background:"var(--color-background-primary)", borderRadius:"8px", borderLeft:"3px solid var(--color-text-primary)", marginBottom:"0" },
+  prompt: { fontSize:"14px", fontStyle:"italic", color:"var(--color-text-primary)", lineHeight:"1.65", padding:"14px 16px", background:"var(--color-background-primary)", borderRadius:"8px", borderLeft:`3px solid ${PINK}`, marginBottom:"0" },
   inp:    { width:"100%", padding:"10px 12px", border:"1px solid var(--color-border-tertiary)", borderRadius:"8px", fontSize:"13px", background:"var(--color-background-secondary)", color:"var(--color-text-primary)", fontFamily:"var(--font-sans)", boxSizing:"border-box" },
-  btnP:   { background:"var(--color-text-primary)", color:"var(--color-background-primary)", border:"none", borderRadius:"8px", padding:"10px 20px", fontSize:"13px", cursor:"pointer", fontFamily:"var(--font-sans)", fontWeight:"500" },
+  btnP:   { background:PINK, color:"#fff", border:"none", borderRadius:"8px", padding:"10px 20px", fontSize:"13px", cursor:"pointer", fontFamily:"var(--font-sans)", fontWeight:"500" },
   btnS:   { background:"transparent", color:"var(--color-text-secondary)", border:"1px solid var(--color-border-secondary)", borderRadius:"8px", padding:"10px 16px", fontSize:"13px", cursor:"pointer", fontFamily:"var(--font-sans)" },
   tag:    { display:"inline-block", fontSize:"11px", padding:"2px 8px", borderRadius:"8px", background:"var(--color-background-tertiary)", color:"var(--color-text-secondary)", border:"1px solid var(--color-border-tertiary)", marginRight:"4px", marginBottom:"4px" },
   prog:   { height:"2px", background:"var(--color-border-tertiary)", borderRadius:"1px", margin:"0 0 16px" },
-  bar:    { height:"2px", background:"var(--color-text-primary)", borderRadius:"1px", transition:"width .4s" },
+  bar:    { height:"2px", background:PINK, borderRadius:"1px", transition:"width .4s" },
   dimRow: { marginBottom:"18px" },
   dimBtns:{ display:"flex", gap:"6px", marginTop:"6px" },
   dimBtn: { flex:1, padding:"10px 0", border:"1px solid var(--color-border-tertiary)", borderRadius:"6px", background:"var(--color-background-secondary)", color:"var(--color-text-secondary)", fontSize:"15px", fontWeight:"500", cursor:"pointer", fontFamily:"var(--font-mono)", transition:"all .1s" },
-  dimBtnA:{ background:"var(--color-text-primary)", color:"var(--color-background-primary)", borderColor:"var(--color-text-primary)" },
+  dimBtnA:{ background:PINK, color:"#fff", borderColor:PINK },
   dimEnds:{ display:"flex", justifyContent:"space-between", fontSize:"10px", color:"var(--color-text-tertiary)", marginTop:"5px" },
   navRow: { display:"flex", justifyContent:"space-between", alignItems:"center", gap:"8px", marginTop:"16px" },
   pill:   { fontSize:"10px", fontWeight:"500", padding:"2px 9px", borderRadius:"20px" },
@@ -384,7 +388,7 @@ export default function App() {
   // ── LOADING ──
   if (screen==="loading") return (
     <div style={{...css.page,display:"flex",alignItems:"center",justifyContent:"center",height:"200px"}}>
-      <span style={{fontSize:"13px",color:"var(--color-text-tertiary)"}}>Loading RalphScore…</span>
+      <span style={{fontSize:"13px",color:"var(--color-text-tertiary)"}}>Loading Voices Calibration…</span>
     </div>
   )
 
@@ -400,9 +404,9 @@ export default function App() {
   if (screen==="welcome") return (
     <div style={css.page}>
       <div style={{paddingTop:"8px",marginBottom:"24px"}}>
-        <div style={css.hdr}>Ralph Calibration Set</div>
-        <div style={css.h1}>RalphScore</div>
-        <div style={css.sub}>We're building a shared definition of creative excellence — and that starts with your taste, your instincts, and your judgement. This exercise asks you to score {camps.length} real campaigns across 5 dimensions. Your scores help us understand what great creative looks like through the eyes of the people who actually make it. This isn't about replacing anyone's expertise — it's about capturing it. Ralph gets smarter when it learns from the team, not instead of the team.</div>
+        <img src="/ralph-logo.png" alt="ralph" style={{height:"36px",marginBottom:"8px"}}/>
+        <div style={css.hdr}>Voices Calibration</div>
+        <div style={css.sub}>We're building a shared definition of creative excellence — and that starts with your taste, your instincts, and your judgement. This exercise asks you to score {camps.length} real campaigns across 5 dimensions. Your scores help us understand what great creative looks like through the eyes of the people who actually make it. This isn't about replacing anyone's expertise — it's about capturing it. Voices gets smarter when it learns from the team, not instead of the team.</div>
         <div style={{display:"flex",gap:"16px",fontSize:"12px",color:"var(--color-text-tertiary)"}}>
           <span>~45 minutes</span><span>·</span><span>Return anytime</span><span>·</span><span>{camps.length} campaigns</span>
         </div>
@@ -434,9 +438,9 @@ export default function App() {
             <div style={{display:"flex",flexWrap:"wrap",gap:"6px",marginTop:"6px"}}>
               {ROLES.map(r=>(
                 <div key={r} onClick={()=>setRoleIn(r)} style={{...css.tag,cursor:"pointer",
-                  background:roleIn===r?"var(--color-text-primary)":"var(--color-background-tertiary)",
-                  color:roleIn===r?"var(--color-background-primary)":"var(--color-text-secondary)",
-                  border:roleIn===r?"1px solid var(--color-text-primary)":"1px solid var(--color-border-tertiary)"}}>
+                  background:roleIn===r?PINK:"var(--color-background-tertiary)",
+                  color:roleIn===r?"#fff":"var(--color-text-secondary)",
+                  border:roleIn===r?`1px solid ${PINK}`:"1px solid var(--color-border-tertiary)"}}>
                   {r}
                 </div>
               ))}
@@ -505,8 +509,8 @@ export default function App() {
       <div style={css.page}>
         <div style={{marginBottom:"24px"}}>
           <div style={css.hdr}>Scoring complete</div>
-          <div style={css.h1}>Your Ralph taste profile</div>
-          <div style={css.sub}>{scored} campaigns · Average RalphScore: <strong>{overall}/5</strong></div>
+          <div style={css.h1}>Your taste profile</div>
+          <div style={css.sub}>{scored} campaigns · Average score: <strong>{overall}/5</strong></div>
         </div>
         <div style={{...css.card,marginBottom:"20px"}}>
           <div style={css.body}>
@@ -516,7 +520,7 @@ export default function App() {
                 <div style={{fontSize:"13px",color:"var(--color-text-secondary)"}}>{d.label}</div>
                 <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
                   <div style={{width:"90px",height:"3px",background:"var(--color-border-tertiary)",borderRadius:"2px"}}>
-                    <div style={{width:`${((dimAvgs[d.id]||0)/5)*100}%`,height:"3px",background:"var(--color-text-primary)",borderRadius:"2px"}}/>
+                    <div style={{width:`${((dimAvgs[d.id]||0)/5)*100}%`,height:"3px",background:PINK,borderRadius:"2px"}}/>
                   </div>
                   <span style={{...css.score,fontSize:"16px",minWidth:"28px",textAlign:"right"}}>{dimAvgs[d.id]??"-"}</span>
                 </div>
@@ -671,8 +675,8 @@ export default function App() {
                 <div style={{display:"flex",flexWrap:"wrap",gap:"6px",marginTop:"6px"}}>
                   {["brand","social","purpose","collab","product"].map(t=>(
                     <div key={t} onClick={()=>setNewC({...newC,territory:t})} style={{...css.tag,cursor:"pointer",
-                      background:newC.territory===t?"var(--color-text-primary)":"var(--color-background-tertiary)",
-                      color:newC.territory===t?"var(--color-background-primary)":"var(--color-text-secondary)"}}>{t}</div>
+                      background:newC.territory===t?PINK:"var(--color-background-tertiary)",
+                      color:newC.territory===t?"#fff":"var(--color-text-secondary)"}}>{t}</div>
                   ))}
                 </div>
               </div>
@@ -681,8 +685,8 @@ export default function App() {
                 <div style={{display:"flex",flexWrap:"wrap",gap:"6px",marginTop:"6px"}}>
                   {["anchor","strong","divisive","middling"].map(q=>(
                     <div key={q} onClick={()=>setNewC({...newC,quality:q})} style={{...css.tag,cursor:"pointer",
-                      background:newC.quality===q?"var(--color-text-primary)":"var(--color-background-tertiary)",
-                      color:newC.quality===q?"var(--color-background-primary)":"var(--color-text-secondary)"}}>{QLABELS[q]}</div>
+                      background:newC.quality===q?PINK:"var(--color-background-tertiary)",
+                      color:newC.quality===q?"#fff":"var(--color-text-secondary)"}}>{QLABELS[q]}</div>
                   ))}
                 </div>
               </div>
