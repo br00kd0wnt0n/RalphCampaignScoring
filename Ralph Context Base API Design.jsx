@@ -201,27 +201,25 @@ function ScoreCard({ camp, existing, idx, total, pct, onSave, onNext }) {
       {/* ── SCORING TABLE ── */}
       <div style={css.card}>
         <div style={css.body}>
-          <div style={{...css.label,marginBottom:"14px",fontSize:"11px"}}>Rate each dimension (1–5)</div>
-          <table style={{width:"100%",borderCollapse:"separate",borderSpacing:"0 10px"}}>
-            <tbody>
-              {DIMS.map(dim => (
-                <tr key={dim.id}>
-                  <td style={{verticalAlign:"top",paddingRight:"12px",width:"110px"}}>
-                    <div style={{fontSize:"12px",fontWeight:"500",color:"var(--color-text-primary)",lineHeight:"1.3"}}>{dim.label}</div>
-                    <div style={{fontSize:"10px",color:"var(--color-text-tertiary)",marginTop:"2px"}}>{dim.lo} → {dim.hi}</div>
-                  </td>
-                  <td>
-                    <div style={{display:"flex",gap:"6px"}}>
-                      {[1,2,3,4,5].map(n => (
-                        <button key={n} onClick={()=>setDims({...dims,[dim.id]:n})}
-                          style={{...css.dimBtn,flex:1,padding:"10px 0",...(dims[dim.id]===n?css.dimBtnA:{})}}>{n}</button>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{fontSize:"16px",fontWeight:"600",color:"var(--color-text-primary)",marginBottom:"4px"}}>Score this campaign</div>
+          <div style={{fontSize:"12px",color:"var(--color-text-secondary)",marginBottom:"18px"}}>Rate each dimension from 1 (low) to 5 (high)</div>
+          <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+            {DIMS.map(dim => (
+              <div key={dim.id} style={{padding:"12px 14px",background:"var(--color-background-primary)",borderRadius:"8px",border:"1px solid var(--color-border-tertiary)"}}>
+                <div style={{fontSize:"14px",fontWeight:"600",color:"var(--color-text-primary)",marginBottom:"6px"}}>{dim.label}</div>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:"8px"}}>
+                  <span style={{fontSize:"11px",fontWeight:"500",color:"#b45309",background:"#fef3c7",padding:"2px 8px",borderRadius:"4px"}}>{dim.lo}</span>
+                  <span style={{fontSize:"11px",fontWeight:"500",color:"#047857",background:"#d1fae5",padding:"2px 8px",borderRadius:"4px"}}>{dim.hi}</span>
+                </div>
+                <div style={{display:"flex",gap:"6px"}}>
+                  {[1,2,3,4,5].map(n => (
+                    <button key={n} onClick={()=>setDims({...dims,[dim.id]:n})}
+                      style={{...css.dimBtn,flex:1,padding:"10px 0",...(dims[dim.id]===n?css.dimBtnA:{})}}>{n}</button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
           <div style={{marginTop:"8px"}}>
             <div style={css.label}>Note (optional)</div>
             <textarea value={note} onChange={e=>setNote(e.target.value)}
