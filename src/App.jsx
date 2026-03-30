@@ -81,6 +81,9 @@ function ScoreCard({ camp, existing, idx, total, pct, onSave, onNext, onHome }) 
 
   return (
     <div style={css.page}>
+      <div style={{marginBottom:"8px"}}>
+        <img src="/ralph-logo.png" alt="ralph" style={{height:"36px"}}/>
+      </div>
       <div style={{ display:"flex", justifyContent:"space-between", fontSize:"12px", color:"var(--color-text-tertiary)", marginBottom:"8px" }}>
         <span>{idx+1} of {total}</span>
         <span>{Object.values(dims).filter(v=>v!=null).length} / {DIMS.length} scored</span>
@@ -286,9 +289,6 @@ function MediaMatrix({ images, videoUrl, link, alt }) {
           )
         })}
       </div>
-      {link && <div style={{textAlign:"right",marginTop:"6px",marginBottom:"4px"}}>
-        <a href={link} target="_blank" rel="noreferrer" style={{fontSize:"11px",color:"var(--color-text-info)",textDecoration:"none"}}>Open campaign link ↗</a>
-      </div>}
     </div>
   )
 }
@@ -468,6 +468,9 @@ export default function App() {
   // ── REVIEW ──
   if (screen==="review") return (
     <div style={css.page}>
+      <div style={{marginBottom:"8px"}}>
+        <img src="/ralph-logo.png" alt="ralph" style={{height:"36px"}}/>
+      </div>
       <div style={{marginBottom:"20px"}}>
         <div style={css.hdr}>Almost done</div>
         <div style={css.h1}>Review & submit</div>
@@ -508,6 +511,9 @@ export default function App() {
     const top5 = camps.filter(c=>scores[c.id]).sort((a,b)=>(avg(Object.values(scores[b.id]?.dims||{})))-(avg(Object.values(scores[a.id]?.dims||{})))).slice(0,5)
     return (
       <div style={css.page}>
+        <div style={{marginBottom:"8px"}}>
+          <img src="/ralph-logo.png" alt="ralph" style={{height:"36px"}}/>
+        </div>
         <div style={{marginBottom:"24px"}}>
           <div style={css.hdr}>Scoring complete</div>
           <div style={css.h1}>Your taste profile</div>
@@ -569,6 +575,9 @@ export default function App() {
     const ranked = camps.filter(c=>agg[c.id]).sort((a,b)=>(agg[b.id]?.overall||0)-(agg[a.id]?.overall||0))
     return (
       <div style={css.page}>
+        <div style={{marginBottom:"8px"}}>
+          <img src="/ralph-logo.png" alt="ralph" style={{height:"36px"}}/>
+        </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"24px"}}>
           <div>
             <div style={css.hdr}>Collective taste</div>
@@ -612,6 +621,9 @@ export default function App() {
   // ── ADMIN ──
   if (screen==="admin") return (
     <div style={css.page}>
+      <div style={{marginBottom:"8px"}}>
+        <img src="/ralph-logo.png" alt="ralph" style={{height:"36px"}}/>
+      </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px"}}>
         <div style={css.h2}>Admin</div>
         <button style={css.btnS} onClick={()=>setScreen(profile?"complete":"welcome")}>← Back</button>
@@ -655,6 +667,9 @@ export default function App() {
                       videoUrl={c.videoUrl} link={c.link} alt={c.brand}/>
                   </div>
                 )}
+                <div style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
+                  <button style={{...css.btnS,padding:"6px 10px",fontSize:"11px"}} onClick={()=>{ const oi=order.indexOf(c.id); if(oi>=0){setIdx(oi);setScreen("scoring")} }}>Preview scoring →</button>
+                </div>
                 <CampDetail camp={c}/>
                 <MediaEdit camp={c} onSave={updateMedia}/>
               </div>
