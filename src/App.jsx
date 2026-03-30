@@ -668,7 +668,7 @@ export default function App() {
                   </div>
                 )}
                 <div style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"6px"}}>
-                  <button style={{...css.btnS,padding:"6px 10px",fontSize:"11px"}} onClick={()=>{ const oi=order.indexOf(c.id); if(oi>=0){setIdx(oi);setScreen("scoring")} }}>Preview scoring →</button>
+                  <button style={{...css.btnS,padding:"6px 10px",fontSize:"11px"}} onClick={()=>{ if(!order.length){const o=camps.map(x=>x.id);setOrder(o)} const oi=(order.length?order:camps.map(x=>x.id)).indexOf(c.id); if(oi>=0){setIdx(oi);setScreen("scoring")} }}>Preview scoring →</button>
                 </div>
                 <CampDetail camp={c}/>
                 <MediaEdit camp={c} onSave={updateMedia}/>
