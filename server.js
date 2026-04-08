@@ -161,6 +161,39 @@ app.post("/api/campaigns", async (req, res) => {
   res.json(camp)
 })
 
+// Create or update campaign from Narrativ concept handoff
+app.post("/api/campaigns/from-narrativ", async (req, res) => {
+  const { session_id, concept, statement, audience, hypotheses } = req.body
+  if (!session_id || !concept) return res.status(400).json({ error: "session_id and concept required" })
+
+  const id = `narrativ_${session_id}`
+  const data = {
+    id,
+    brand: "Concept Test",
+    campaign: concept,
+    year: new Date().getFullYear().toString(),
+    territory: "concept",
+    platform: "Narrativ",
+    agency: "Ralph",
+    stat: audience || "Audience to be validated",
+    note: statement || "",
+    scoring: hypotheses?.length
+      ? `Score this concept against these hypotheses:\n${hypotheses.map((h, i) => `${i + 1}. ${h}`).join("\n")}`
+      : `Score this concept across the 5 dimensions. Is it strong enough to take forward?`,
+    link: "",
+    imageUrl: null,
+    quality: "strong",
+    source: "narrativ",
+    narrativ_session_id: session_id,
+  }
+
+  await query(
+    "INSERT INTO campaigns (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = $2",
+    [id, JSON.stringify(data)]
+  )
+  res.json({ success: true, campaign: data })
+})
+
 // --- Static files (production) ---
 app.use(express.static(path.join(__dirname, "dist")))
 app.get("/{*splat}", (req, res) => {

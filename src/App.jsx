@@ -307,8 +307,24 @@ export default function App() {
   const [unlocked, setUnlocked] = useState(false)
   const [passIn,   setPassIn]   = useState("")
   const [newC,     setNewC]     = useState({brand:"",campaign:"",year:"2024",territory:"brand",platform:"",agency:"",stat:"",note:"",scoring:"",link:"",imageUrl:"",videoUrl:"",quality:"strong"})
+  const [narrativConcept, setNarrativConcept] = useState(null)
 
   useEffect(()=>{
+    // Parse Narrativ handoff params
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("source") === "narrativ") {
+      const concept = {
+        sessionId: params.get("session_id") || "",
+        title: params.get("concept") || "Untitled Concept",
+        statement: params.get("statement") || "",
+        audience: params.get("audience") || "",
+        hypotheses: (() => { try { return JSON.parse(params.get("hypotheses") || "[]") } catch { return [] } })(),
+      }
+      setNarrativConcept(concept)
+      // Clean URL without reloading
+      window.history.replaceState({}, "", window.location.pathname)
+    }
+
     ;(async()=>{
       try {
         const c = await api("/api/campaigns")
@@ -326,9 +342,11 @@ export default function App() {
             setOrder(o)
             const first = o.findIndex(id => !sc[id])
             setIdx(first === -1 ? o.length : first)
-            setScreen(first === -1 ? "complete" : "scoring")
-          } catch { localStorage.removeItem("rs_scorer_id"); setScreen("welcome") }
-        } else { setScreen("welcome") }
+            // If arriving from Narrativ, show the narrativ screen instead
+            if (params.get("source") === "narrativ") setScreen("narrativ")
+            else setScreen(first === -1 ? "complete" : "scoring")
+          } catch { localStorage.removeItem("rs_scorer_id"); setScreen(params.get("source") === "narrativ" ? "narrativ" : "welcome") }
+        } else { setScreen(params.get("source") === "narrativ" ? "narrativ" : "welcome") }
       } catch { setScreen("error") }
     })()
   },[])
@@ -456,6 +474,110 @@ export default function App() {
       <div onClick={()=>setScreen("admin")} style={{fontSize:"12px",color:"var(--color-text-tertiary)",textAlign:"right",cursor:"pointer",marginTop:"10px",padding:"4px"}}>Admin ›</div>
     </div>
   )
+
+  // ── NARRATIV HANDOFF ──
+  if (screen==="narrativ" && narrativConcept) {
+    const startNarrativTest = async () => {
+      if ((!profile && !nameIn.trim()) || !roleIn) return
+      let p = profile
+      if (!p) {
+        p = await api("/api/profile", { method:"POST", body:JSON.stringify({ name:nameIn.trim(), role:roleIn }) })
+        setProfile(p); localStorage.setItem("rs_scorer_id", p.id)
+      }
+
+      // Create the Narrativ concept as a campaign in Voices
+      const { campaign } = await api("/api/campaigns/from-narrativ", {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: narrativConcept.sessionId,
+          concept: narrativConcept.title,
+          statement: narrativConcept.statement,
+          audience: narrativConcept.audience,
+          hypotheses: narrativConcept.hypotheses,
+        }),
+      })
+
+      // Refresh campaigns list with the new concept
+      const updatedCamps = await api("/api/campaigns")
+      if (Array.isArray(updatedCamps)) setCamps(updatedCamps)
+
+      const existingScores = await api(`/api/scores/${p.id}`)
+      setScores(existingScores)
+
+      // Put the Narrativ concept first, then shuffle the rest
+      const conceptId = campaign.id
+      const otherIds = (updatedCamps || camps).map(c => c.id).filter(id => id !== conceptId)
+      const o = [conceptId, ...shuffle(otherIds)]
+      setOrder(o); localStorage.setItem("rs_order", JSON.stringify(o))
+      setIdx(0) // Start with the Narrativ concept
+      setScreen("scoring")
+    }
+    return (
+      <div style={css.page}>
+        <div style={{marginBottom:"8px"}}>
+          <img src="/ralph-logo.png" alt="ralph" style={{height:"36px"}}/>
+        </div>
+        <div style={{marginBottom:"20px"}}>
+          <div style={css.hdr}>From Narrativ</div>
+          <div style={css.h1}>Score this concept</div>
+          <div style={css.sub}>A concept has been sent from Narrativ for scoring. You'll score it first across the 5 dimensions, then continue with the calibration set. Select your persona to begin.</div>
+        </div>
+
+        {/* Concept card */}
+        <div style={{...css.card,marginBottom:"16px",borderLeft:`3px solid ${PINK}`}}>
+          <div style={css.body}>
+            <div style={{...css.label,marginBottom:"4px"}}>Concept</div>
+            <div style={{fontSize:"18px",fontWeight:"600",marginBottom:"10px",letterSpacing:"-0.01em"}}>{narrativConcept.title}</div>
+            {narrativConcept.statement && <>
+              <div style={{...css.label,marginBottom:"4px"}}>Statement</div>
+              <div style={{...css.val,lineHeight:"1.7"}}>{narrativConcept.statement}</div>
+            </>}
+            {narrativConcept.audience && <>
+              <div style={{...css.label,marginBottom:"4px"}}>Target audience</div>
+              <div style={{...css.val}}>{narrativConcept.audience}</div>
+            </>}
+            {narrativConcept.hypotheses.length > 0 && <>
+              <div style={{...css.label,marginBottom:"4px"}}>Testing hypotheses</div>
+              {narrativConcept.hypotheses.map((h,i) => (
+                <div key={i} style={{fontSize:"13px",color:"var(--color-text-secondary)",lineHeight:"1.6",paddingLeft:"12px",borderLeft:`2px solid ${PINK_SUBTLE}`,marginBottom:"6px"}}>{h}</div>
+              ))}
+            </>}
+          </div>
+        </div>
+
+        {/* Quick persona selection */}
+        <div style={css.card}>
+          <div style={css.body}>
+            {!profile && <div style={{marginBottom:"14px"}}>
+              <div style={css.label}>Your name</div>
+              <input style={css.inp} value={nameIn} onChange={e=>setNameIn(e.target.value)} placeholder="First name is fine"
+                onKeyDown={e=>e.key==="Enter"&&startNarrativTest()}/>
+            </div>}
+            {profile && <div style={{fontSize:"13px",color:"var(--color-text-secondary)",marginBottom:"14px"}}>Scoring as <strong style={{color:"var(--color-text-primary)"}}>{profile.name}</strong></div>}
+            <div style={{marginBottom:"16px"}}>
+              <div style={css.label}>Your persona</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"6px",marginTop:"6px"}}>
+                {ROLES.map(r=>(
+                  <div key={r} onClick={()=>setRoleIn(r)} style={{...css.tag,cursor:"pointer",
+                    background:roleIn===r?PINK:"var(--color-background-tertiary)",
+                    color:roleIn===r?"#fff":"var(--color-text-secondary)",
+                    border:roleIn===r?`1px solid ${PINK}`:"1px solid var(--color-border-tertiary)"}}>
+                    {r}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontSize:"12px",color:"var(--color-text-tertiary)"}}>Concept + {camps.length} calibration campaigns</div>
+              <button style={{...css.btnP,opacity:((!profile&&!nameIn.trim())||!roleIn)?.4:1}} disabled={(!profile&&!nameIn.trim())||!roleIn} onClick={startNarrativTest}>
+                Score concept →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // ── SCORING ──
   if (screen==="scoring" && camp) return (
