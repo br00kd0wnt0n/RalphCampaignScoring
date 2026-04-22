@@ -7,6 +7,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 app.use(express.json())
 
+// Allow Ralph Score to be embedded inside the Narrativ cockpit at
+// https://narrativ2.up.railway.app (and inside itself). Without this
+// header, browsers silently block the iframe.
+app.use((_req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "frame-ancestors 'self' https://narrativ2.up.railway.app"
+  )
+  next()
+})
+
 // --- Seed default campaigns if table is empty ---
 const DEFAULTS = [
   {id:"c01",brand:"Spotify",campaign:"Wrapped",year:"2022–23",quality:"anchor",territory:"brand",platform:"Social, app",agency:"In-house (Spotify Studios)",stat:"60M+ social shares in 2022. Users become brand ambassadors. Zero paid media required.",note:"Annual personalised data roundup that turns every user into an organic brand ambassador across every social platform.",scoring:"Does making users the medium count as creative excellence — or is this a data product masquerading as a campaign?",link:"https://youtu.be/Yjkp_ckQMmc",imageUrl:null},
