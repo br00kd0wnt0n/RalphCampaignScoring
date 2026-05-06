@@ -30,7 +30,7 @@ const PINK_SUBTLE = "rgba(217, 77, 143, 0.15)"
 
 // --- styles ---
 const css = {
-  page:   { fontFamily:"var(--font-sans)", padding:"0 0 40px", color:"var(--color-text-primary)" },
+  page:   { fontFamily:"var(--font-sans)", padding:"0 0 40px", color:"var(--color-text-primary)", maxWidth:"640px", margin:"0 auto" },
   hdr:    { fontSize:"11px", fontWeight:"600", textTransform:"uppercase", letterSpacing:".08em", color:PINK, marginBottom:"6px" },
   h1:     { fontSize:"24px", fontWeight:"700", marginBottom:"4px", letterSpacing:"-0.02em" },
   h2:     { fontSize:"16px", fontWeight:"600", marginBottom:"12px" },
@@ -144,22 +144,31 @@ function ScoreCard({ camp, existing, idx, total, pct, scoredCount, onSave, onNex
   const init = () => { const d={}; DIMS.forEach(dim => { d[dim.id] = existing?.dims?.[dim.id] ?? null }); return d }
   const [dims, setDims] = useState(init)
   const [note, setNote] = useState(existing?.note ?? "")
+  const [wide, setWide] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width: 900px)").matches)
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 900px)")
+    const fn = e => setWide(e.matches)
+    mq.addEventListener("change", fn)
+    return () => mq.removeEventListener("change", fn)
+  }, [])
   const allDone = DIMS.every(d => dims[d.id] != null)
   const qc = QCOLORS[camp.quality] || QCOLORS.middling
 
   const submit = () => { if (allDone) { onSave(camp.id, dims, note); onNext() } }
 
   return (
-    <div style={css.page}>
+    <div style={{...css.page, maxWidth: wide ? "1100px" : "640px"}}>
       <div style={{marginBottom:"8px"}}>
         <img src="/ralph-logo.png" alt="ralph" style={{height:"36px"}}/>
       </div>
       <div style={{ display:"flex", justifyContent:"space-between", fontSize:"12px", color:"var(--color-text-tertiary)", marginBottom:"8px" }}>
         <span>{idx+1} of {total}</span>
-        <span>{Object.values(dims).filter(v=>v!=null).length} / {DIMS.length} scored</span>
+        <span>{Object.values(dims).filter(v=>v!=null).length} / {DIMS.length} dimensions rated</span>
       </div>
       <div style={css.prog}><div style={{...css.bar, width:`${pct}%`}}/></div>
 
+      <div style={wide ? {display:"grid",gridTemplateColumns:"minmax(0, 1fr) 400px",gap:"20px",alignItems:"start"} : {}}>
+      <div>
       <div style={css.card}>
         <MediaMatrix images={camp.images && camp.images.length ? camp.images : camp.imageUrl ? [camp.imageUrl] : []}
           videoUrl={camp.videoUrl} link={camp.link} alt={camp.brand}/>
@@ -201,34 +210,45 @@ function ScoreCard({ camp, existing, idx, total, pct, scoredCount, onSave, onNex
           <div style={css.prompt}>{camp.scoring}</div>
         </div>
       </div>
+      </div>
 
-      {/* ── SCORING TABLE ── */}
+      {/* ── SCORING TABLE (right column when wide) ── */}
+      <div style={wide ? {position:"sticky",top:"12px"} : {}}>
       <div style={css.card}>
-        <div style={css.body}>
-          <div style={{fontSize:"16px",fontWeight:"600",color:"var(--color-text-primary)",marginBottom:"4px"}}>Score this campaign</div>
-          <div style={{fontSize:"12px",color:"var(--color-text-secondary)",marginBottom:"18px"}}>Rate each dimension from 1 (low) to 5 (high)</div>
-          <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+        <div style={{...css.body, padding: wide ? "12px 14px" : "16px"}}>
+          <div style={{fontSize: wide ? "14px" : "16px",fontWeight:"600",color:"var(--color-text-primary)",marginBottom:"4px"}}>Score this campaign</div>
+          <div style={{fontSize:"11px",color:"var(--color-text-secondary)",marginBottom: wide ? "10px" : "18px"}}>Rate each dimension 1 (low) to 5 (high)</div>
+          <div style={{display:"flex",flexDirection:"column",gap: wide ? "8px" : "16px"}}>
             {DIMS.map(dim => (
-              <div key={dim.id} style={{padding:"12px 14px",background:"var(--color-background-primary)",borderRadius:"8px",border:"1px solid var(--color-border-tertiary)"}}>
-                <div style={{fontSize:"14px",fontWeight:"600",color:"var(--color-text-primary)",marginBottom:"6px"}}>{dim.label}</div>
-                <div style={{display:"flex",justifyContent:"space-between",marginBottom:"8px"}}>
-                  <span style={{fontSize:"11px",fontWeight:"500",color:"#b45309",background:"#fef3c7",padding:"2px 8px",borderRadius:"4px"}}>{dim.lo}</span>
-                  <span style={{fontSize:"11px",fontWeight:"500",color:"#047857",background:"#d1fae5",padding:"2px 8px",borderRadius:"4px"}}>{dim.hi}</span>
+              <div key={dim.id} style={{padding: wide ? "8px 10px" : "12px 14px",background:"var(--color-background-primary)",borderRadius:"8px",border:"1px solid var(--color-border-tertiary)"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom: wide ? "5px" : "6px",gap:"6px"}}>
+                  <div style={{fontSize: wide ? "13px" : "14px",fontWeight:"600",color:"var(--color-text-primary)"}}>{dim.label}</div>
+                  {wide && (
+                    <div style={{display:"flex",gap:"4px",fontSize:"10px",color:"var(--color-text-tertiary)"}}>
+                      <span style={{color:"#b45309"}}>{dim.lo}</span><span>·</span><span style={{color:"#047857"}}>{dim.hi}</span>
+                    </div>
+                  )}
                 </div>
+                {!wide && (
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:"8px"}}>
+                    <span style={{fontSize:"11px",fontWeight:"500",color:"#b45309",background:"#fef3c7",padding:"2px 8px",borderRadius:"4px"}}>{dim.lo}</span>
+                    <span style={{fontSize:"11px",fontWeight:"500",color:"#047857",background:"#d1fae5",padding:"2px 8px",borderRadius:"4px"}}>{dim.hi}</span>
+                  </div>
+                )}
                 <div style={{display:"flex",gap:"6px"}}>
                   {[1,2,3,4,5].map(n => (
                     <button key={n} onClick={()=>setDims({...dims,[dim.id]:n})}
-                      style={{...css.dimBtn,...(dims[dim.id]===n?css.dimBtnA:{})}}>{n}</button>
+                      style={{...css.dimBtn, padding: wide ? "6px 0" : "10px 0", fontSize: wide ? "14px" : "15px", ...(dims[dim.id]===n?css.dimBtnA:{})}}>{n}</button>
                   ))}
                 </div>
               </div>
             ))}
           </div>
-          <div style={{marginTop:"16px"}}>
+          <div style={{marginTop: wide ? "10px" : "16px"}}>
             <div style={css.label}>Note (optional)</div>
             <textarea value={note} onChange={e=>setNote(e.target.value)}
               placeholder="Any reaction, disagreement, or reasoning..."
-              style={{...css.inp,height:"60px",resize:"vertical",marginTop:"4px"}}/>
+              style={{...css.inp,height: wide ? "44px" : "60px",resize:"vertical",marginTop:"4px"}}/>
           </div>
         </div>
       </div>
@@ -249,6 +269,8 @@ function ScoreCard({ camp, existing, idx, total, pct, scoredCount, onSave, onNex
           </button>
         </div>
       )}
+      </div>
+      </div>
     </div>
   )
 }
