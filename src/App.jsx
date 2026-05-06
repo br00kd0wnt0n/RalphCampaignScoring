@@ -69,8 +69,78 @@ function getEmbedUrl(url) {
   return null
 }
 
+// ── RADAR CHART ─────────────────────────────────────────────────────────────
+const RADAR_SHORT = { idea:"Idea", cultural:"Culture", craft:"Craft", brand:"Brand", share:"Share" }
+function Radar({ size=260, user, team, showTeam=true }) {
+  const cx = size/2, cy = size/2
+  const r = size/2 - 44
+  const n = DIMS.length
+  const angle = i => (Math.PI*2*i/n) - Math.PI/2
+  const point = (i, val) => {
+    const a = angle(i); const rr = r * (Math.max(0, Math.min(5, val||0))/5)
+    return [cx + Math.cos(a)*rr, cy + Math.sin(a)*rr]
+  }
+  const polyStr = pts => pts.map(([x,y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ")
+  const userPts = DIMS.map((d,i) => point(i, user?.[d.id] ?? 0))
+  const teamPts = (showTeam && team) ? DIMS.map((d,i) => point(i, team?.[d.id] ?? 0)) : null
+  const hasUser = DIMS.some(d => user?.[d.id] != null)
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{display:"block",margin:"0 auto",overflow:"visible"}}>
+      {[1,2,3,4,5].map(level => (
+        <polygon key={level} points={polyStr(DIMS.map((_,i)=>point(i,level)))}
+          fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1"/>
+      ))}
+      {DIMS.map((_,i) => {
+        const [x,y] = point(i,5)
+        return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth="1"/>
+      })}
+      {teamPts && (
+        <polygon points={polyStr(teamPts)}
+          fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2" strokeDasharray="3 3"/>
+      )}
+      {hasUser && (
+        <polygon points={polyStr(userPts)}
+          fill={PINK_SUBTLE} stroke={PINK} strokeWidth="2"/>
+      )}
+      {hasUser && userPts.map(([x,y],i) => (
+        <circle key={i} cx={x} cy={y} r="3.5" fill={PINK} stroke="#0b0b0b" strokeWidth="1"/>
+      ))}
+      {DIMS.map((d,i) => {
+        const a = angle(i)
+        const lx = cx + Math.cos(a) * (r + 22)
+        const ly = cy + Math.sin(a) * (r + 22)
+        const anchor = Math.abs(Math.cos(a)) < 0.15 ? "middle" : Math.cos(a) > 0 ? "start" : "end"
+        return (
+          <text key={i} x={lx} y={ly} fontSize="10" fill="var(--color-text-secondary)"
+            textAnchor={anchor} dominantBaseline="middle"
+            style={{textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:600}}>
+            {RADAR_SHORT[d.id] || d.label.split(" ")[0]}
+          </text>
+        )
+      })}
+    </svg>
+  )
+}
+
+// ── PROGRESS RING ───────────────────────────────────────────────────────────
+function ProgressRing({ value, total, size=72 }) {
+  const r = size/2 - 5
+  const c = 2*Math.PI*r
+  const pct = total ? value/total : 0
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="4"/>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={PINK} strokeWidth="4"
+        strokeDasharray={`${c*pct} ${c}`} strokeLinecap="round"
+        transform={`rotate(-90 ${size/2} ${size/2})`} style={{transition:"stroke-dasharray .4s",filter:`drop-shadow(0 0 4px ${PINK_GLOW})`}}/>
+      <text x={size/2} y={size/2} fontSize="16" fontWeight="600" fill="var(--color-text-primary)"
+        textAnchor="middle" dominantBaseline="central" style={{fontFamily:"var(--font-mono)"}}>{value}</text>
+    </svg>
+  )
+}
+
 // ── SCORING CARD (local dim state) ──────────────────────────────────────────
-function ScoreCard({ camp, existing, idx, total, pct, onSave, onNext, onHome }) {
+function ScoreCard({ camp, existing, idx, total, pct, scoredCount, onSave, onNext, onHome, onViewTaste }) {
   const init = () => { const d={}; DIMS.forEach(dim => { d[dim.id] = existing?.dims?.[dim.id] ?? null }); return d }
   const [dims, setDims] = useState(init)
   const [note, setNote] = useState(existing?.note ?? "")
@@ -172,6 +242,13 @@ function ScoreCard({ camp, existing, idx, total, pct, onSave, onNext, onHome }) 
           {idx===total-1 ? "Finish & review →" : "Save & next →"}
         </button>
       </div>
+      {scoredCount > 0 && (
+        <div style={{display:"flex",justifyContent:"center",marginTop:"14px"}}>
+          <button style={{...css.btnS,fontSize:"12px",padding:"8px 14px"}} onClick={onViewTaste}>
+            ✦ View your taste so far ({scoredCount} scored)
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -384,6 +461,14 @@ export default function App() {
     setScreen("team")
   }
 
+  const viewTaste = async () => {
+    try {
+      const data = await api("/api/team")
+      setTeamData(data)
+    } catch { /* keep stale or empty teamData */ }
+    setScreen("taste")
+  }
+
   const updateMedia = async (id, images, videoUrl) => {
     const imageUrl = images.length ? images[0] : ""
     const u = camps.map(c => c.id===id ? {...c, imageUrl, images, videoUrl} : c)
@@ -582,9 +667,11 @@ export default function App() {
   // ── SCORING ──
   if (screen==="scoring" && camp) return (
     <ScoreCard key={camp.id} camp={camp} existing={scores[camp.id]} idx={idx} total={order.length} pct={pct}
+      scoredCount={scored}
       onSave={saveScore}
       onNext={() => { if (idx < order.length-1) setIdx(idx+1); else setScreen("review") }}
-      onHome={() => setScreen("welcome")}/>
+      onHome={() => setScreen("welcome")}
+      onViewTaste={viewTaste}/>
   )
 
   // ── REVIEW ──
@@ -621,64 +708,137 @@ export default function App() {
       <div style={{display:"flex",gap:"10px",marginTop:"20px",flexWrap:"wrap"}}>
         <button style={css.btnP} onClick={submit}>Submit scores →</button>
         {unscored>0&&<button style={css.btnS} onClick={()=>{ const f=order.findIndex(id=>!scores[id]); if(f>=0){setIdx(f);setScreen("scoring")} }}>Score {unscored} more</button>}
+        {scored>0&&<button style={css.btnS} onClick={viewTaste}>✦ View your taste</button>}
       </div>
     </div>
   )
 
-  // ── COMPLETE ──
-  if (screen==="complete") {
-    const dimAvgs = {}
-    DIMS.forEach(d => { dimAvgs[d.id] = avg(Object.values(scores).map(s=>s.dims?.[d.id]).filter(v=>v!=null)) })
-    const overall = avg(Object.values(dimAvgs).filter(v=>v!=null))
-    const top5 = camps.filter(c=>scores[c.id]).sort((a,b)=>(avg(Object.values(scores[b.id]?.dims||{})))-(avg(Object.values(scores[a.id]?.dims||{})))).slice(0,5)
+  // ── TASTE / COMPLETE (shared) ──
+  if (screen==="taste" || screen==="complete") {
+    const isComplete = screen==="complete"
+    const userDims = {}
+    DIMS.forEach(d => { userDims[d.id] = avg(Object.values(scores).map(s=>s.dims?.[d.id]).filter(v=>v!=null)) })
+    const overall = avg(Object.values(userDims).filter(v=>v!=null))
+
+    // Team aggregates per dimension across all team scores
+    const teamDims = {}
+    DIMS.forEach(d => {
+      const all = []
+      Object.values(teamData).forEach(scorer => {
+        Object.values(scorer.scores || {}).forEach(s => { if (s.dims?.[d.id] != null) all.push(s.dims[d.id]) })
+      })
+      teamDims[d.id] = all.length ? avg(all) : null
+    })
+    const teamHasData = Object.values(teamDims).some(v => v != null)
+    const otherScorerCount = Math.max(0, Object.keys(teamData).filter(id => id !== profile?.id).length)
+
+    const topN = Math.min(5, scored)
+    const top = camps.filter(c=>scores[c.id])
+      .sort((a,b)=>(avg(Object.values(scores[b.id]?.dims||{})))-(avg(Object.values(scores[a.id]?.dims||{}))))
+      .slice(0, topN)
+
+    const isPreliminary = scored < 3
+    const continueScoring = () => {
+      const f = order.findIndex(id=>!scores[id])
+      if (f >= 0) { setIdx(f); setScreen("scoring") }
+    }
+    const resumeAtCurrent = () => setScreen("scoring")
+
     return (
       <div style={css.page}>
         <div style={{marginBottom:"8px"}}>
           <img src="/ralph-logo.png" alt="ralph" style={{height:"36px"}}/>
         </div>
-        <div style={{marginBottom:"24px"}}>
-          <div style={css.hdr}>Scoring complete</div>
-          <div style={css.h1}>Your taste profile</div>
-          <div style={css.sub}>{scored} campaigns · Average score: <strong>{overall}/5</strong></div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"12px",marginBottom:"20px"}}>
+          <div>
+            <div style={css.hdr}>{isComplete ? "Scoring complete" : "Your taste, taking shape"}</div>
+            <div style={css.h1}>Your taste profile</div>
+            <div style={css.sub}>{scored} of {order.length} scored · Average <strong>{overall ?? "–"}/5</strong></div>
+          </div>
+          <ProgressRing value={scored} total={order.length}/>
         </div>
+
+        {/* Radar */}
+        <div style={{...css.card,marginBottom:"16px"}}>
+          <div style={{...css.body,paddingBottom:"8px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"}}>
+              <div style={css.label}>Taste across dimensions</div>
+              {teamHasData && otherScorerCount>0 && (
+                <div style={{display:"flex",gap:"12px",fontSize:"10px",color:"var(--color-text-tertiary)",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>
+                  <span style={{display:"flex",alignItems:"center",gap:"5px"}}><span style={{width:"10px",height:"2px",background:PINK,borderRadius:"1px"}}/>You</span>
+                  <span style={{display:"flex",alignItems:"center",gap:"5px"}}><span style={{width:"10px",height:"0",borderTop:"2px dashed rgba(255,255,255,0.5)"}}/>Team</span>
+                </div>
+              )}
+            </div>
+            <Radar user={userDims} team={teamDims} showTeam={teamHasData}/>
+            {isPreliminary && (
+              <div style={{textAlign:"center",fontSize:"11px",color:"var(--color-text-tertiary)",marginTop:"4px",fontStyle:"italic"}}>
+                Preliminary — shape sharpens as you score more.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Per-dim numeric breakdown */}
         <div style={{...css.card,marginBottom:"20px"}}>
           <div style={css.body}>
             <div style={css.label}>By dimension</div>
-            {DIMS.map(d=>(
-              <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"12px"}}>
-                <div style={{fontSize:"13px",color:"var(--color-text-secondary)"}}>{d.label}</div>
-                <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
-                  <div style={{width:"90px",height:"3px",background:"var(--color-border-tertiary)",borderRadius:"2px"}}>
-                    <div style={{width:`${((dimAvgs[d.id]||0)/5)*100}%`,height:"3px",background:PINK,borderRadius:"2px"}}/>
+            {DIMS.map(d=>{
+              const u = userDims[d.id]; const t = teamDims[d.id]
+              return (
+                <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"12px"}}>
+                  <div style={{fontSize:"13px",color:"var(--color-text-secondary)"}}>{d.label}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+                    <div style={{position:"relative",width:"90px",height:"3px",background:"var(--color-border-tertiary)",borderRadius:"2px"}}>
+                      <div style={{width:`${((u||0)/5)*100}%`,height:"3px",background:PINK,borderRadius:"2px"}}/>
+                      {t != null && (
+                        <div title={`Team ${t}`} style={{position:"absolute",top:"-3px",left:`calc(${(t/5)*100}% - 1px)`,width:"2px",height:"9px",background:"rgba(255,255,255,0.6)",borderRadius:"1px"}}/>
+                      )}
+                    </div>
+                    <span style={{...css.score,fontSize:"16px",minWidth:"28px",textAlign:"right"}}>{u ?? "-"}</span>
                   </div>
-                  <span style={{...css.score,fontSize:"16px",minWidth:"28px",textAlign:"right"}}>{dimAvgs[d.id]??"-"}</span>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
-        <div style={css.label}>Your top 5</div>
-        {top5.map((c,i)=>{
-          const a = avg(Object.values(scores[c.id]?.dims||{}))
-          return (
-            <div key={c.id} style={{...css.card,cursor:"pointer"}} onClick={()=>{ const oi=order.indexOf(c.id); setIdx(oi); setScreen("scoring") }}>
-              <div style={{...css.body,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div style={{display:"flex",gap:"12px",alignItems:"center"}}>
-                  <span style={{fontSize:"14px",color:"var(--color-text-tertiary)",minWidth:"18px"}}>#{i+1}</span>
-                  <div>
-                    <div style={{fontSize:"13px",fontWeight:"500"}}>{c.brand}</div>
-                    <div style={{fontSize:"12px",color:"var(--color-text-secondary)"}}>{c.campaign}</div>
+
+        {top.length > 0 && <>
+          <div style={css.label}>Your top {top.length}</div>
+          {top.map((c,i)=>{
+            const a = avg(Object.values(scores[c.id]?.dims||{}))
+            return (
+              <div key={c.id} style={{...css.card,cursor:"pointer"}} onClick={()=>{ const oi=order.indexOf(c.id); if(oi>=0){setIdx(oi);setScreen("scoring")} }}>
+                <div style={{...css.body,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{display:"flex",gap:"12px",alignItems:"center"}}>
+                    <span style={{fontSize:"14px",color:"var(--color-text-tertiary)",minWidth:"18px"}}>#{i+1}</span>
+                    <div>
+                      <div style={{fontSize:"13px",fontWeight:"500"}}>{c.brand}</div>
+                      <div style={{fontSize:"12px",color:"var(--color-text-secondary)"}}>{c.campaign}</div>
+                    </div>
                   </div>
+                  <div style={css.score}>{a}</div>
                 </div>
-                <div style={css.score}>{a}</div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </>}
+
         <div style={{display:"flex",gap:"10px",marginTop:"24px",flexWrap:"wrap"}}>
-          <button style={css.btnP} onClick={loadTeam}>See team scores</button>
-          {unscored>0&&<button style={css.btnS} onClick={()=>{ const f=order.findIndex(id=>!scores[id]); if(f>=0){setIdx(f);setScreen("scoring")} }}>Score {unscored} more</button>}
-          <button style={css.btnS} onClick={()=>setScreen("admin")}>Admin</button>
+          {isComplete ? (
+            <>
+              <button style={css.btnP} onClick={loadTeam}>See team scores</button>
+              {unscored>0 && <button style={css.btnS} onClick={continueScoring}>Score {unscored} more</button>}
+              <button style={css.btnS} onClick={()=>setScreen("admin")}>Admin</button>
+            </>
+          ) : (
+            <>
+              {unscored>0
+                ? <button style={css.btnP} onClick={camp ? resumeAtCurrent : continueScoring}>← Continue scoring</button>
+                : <button style={css.btnP} onClick={()=>setScreen("review")}>Review & submit →</button>}
+              {teamHasData && otherScorerCount>0 && <button style={css.btnS} onClick={loadTeam}>See team scores</button>}
+            </>
+          )}
         </div>
       </div>
     )
