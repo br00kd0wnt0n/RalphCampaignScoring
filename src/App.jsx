@@ -407,6 +407,13 @@ export default function App() {
   const [passIn,   setPassIn]   = useState("")
   const [newC,     setNewC]     = useState({brand:"",campaign:"",year:"2024",territory:"brand",platform:"",agency:"",stat:"",note:"",scoring:"",link:"",imageUrl:"",videoUrl:"",quality:"strong"})
   const [narrativConcept, setNarrativConcept] = useState(null)
+  const [tasteWide, setTasteWide] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width: 820px)").matches)
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 820px)")
+    const fn = e => setTasteWide(e.matches)
+    mq.addEventListener("change", fn)
+    return () => mq.removeEventListener("change", fn)
+  }, [])
 
   useEffect(()=>{
     // Parse Narrativ handoff params
@@ -766,8 +773,52 @@ export default function App() {
     }
     const resumeAtCurrent = () => setScreen("scoring")
 
+    // ── Persona & narrative insights ──
+    const PERSONAS = {
+      idea:     { title:"Originality-First",  line:"Bold, original ideas earn your top marks." },
+      cultural: { title:"Zeitgeist Tracker",  line:"You reward work that catches the cultural moment." },
+      craft:    { title:"Craft Devotee",      line:"Execution and craft are where you set the bar high." },
+      brand:    { title:"Brand Purist",       line:"Distinctive brand presence is what wins you over." },
+      share:    { title:"Virality Hunter",    line:"You back work people will actually pass on." },
+    }
+    // user's strongest dim relative to their own mean (so it's about *their* lean, not absolute scores)
+    const dimVals = DIMS.map(d => ({ id:d.id, label:d.label, val:userDims[d.id] })).filter(x => x.val != null)
+    const userMean = dimVals.length ? avg(dimVals.map(x=>x.val)) : null
+    const ranked = dimVals.map(x => ({ ...x, rel: x.val - userMean })).sort((a,b)=>b.rel-a.rel)
+    const topDim = ranked[0]
+    const bottomDim = ranked[ranked.length-1]
+    const persona = topDim && !isPreliminary ? PERSONAS[topDim.id] : null
+
+    // Tough vs generous grader vs team
+    const teamOverall = avg(Object.values(teamDims).filter(v=>v!=null))
+    const graderDelta = (overall != null && teamOverall != null) ? (overall - teamOverall) : null
+    const graderLabel = graderDelta == null ? null
+      : graderDelta >= 0.3 ? "generous critic"
+      : graderDelta <= -0.3 ? "tough grader"
+      : "in line with the team"
+
+    // Boldest take: campaign with biggest |user_avg - team_avg| where team has scored it
+    let hotTake = null
+    if (teamHasData) {
+      camps.forEach(c => {
+        const myS = scores[c.id]; if (!myS) return
+        const my = avg(Object.values(myS.dims||{})); if (my == null) return
+        const otherAvgs = Object.entries(teamData)
+          .filter(([id]) => id !== profile?.id)
+          .map(([,sc]) => sc.scores?.[c.id])
+          .filter(Boolean)
+          .map(s => avg(Object.values(s.dims||{})))
+          .filter(v => v != null)
+        if (otherAvgs.length === 0) return
+        const tm = avg(otherAvgs)
+        const d = Math.abs(my - tm)
+        if (!hotTake || d > hotTake.delta) hotTake = { camp:c, my, tm, delta:d, direction: my > tm ? "above" : "below" }
+      })
+      if (hotTake && hotTake.delta < 0.8) hotTake = null
+    }
+
     return (
-      <div style={css.page}>
+      <div style={{...css.page, maxWidth: tasteWide ? "920px" : "640px"}}>
         <div style={{marginBottom:"8px"}}>
           <img src="/ralph-logo.png" alt="ralph" style={{height:"36px"}}/>
         </div>
@@ -780,24 +831,99 @@ export default function App() {
           <ProgressRing value={scored} total={order.length}/>
         </div>
 
-        {/* Radar */}
-        <div style={{...css.card,marginBottom:"16px"}}>
-          <div style={{...css.body,paddingBottom:"8px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"}}>
-              <div style={css.label}>Taste across dimensions</div>
-              {teamHasData && otherScorerCount>0 && (
-                <div style={{display:"flex",gap:"12px",fontSize:"10px",color:"var(--color-text-tertiary)",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>
-                  <span style={{display:"flex",alignItems:"center",gap:"5px"}}><span style={{width:"10px",height:"2px",background:PINK,borderRadius:"1px"}}/>You</span>
-                  <span style={{display:"flex",alignItems:"center",gap:"5px"}}><span style={{width:"10px",height:"0",borderTop:"2px dashed rgba(255,255,255,0.5)"}}/>Team</span>
+        {/* Persona headline */}
+        {persona ? (
+          <div style={{...css.card, marginBottom:"16px", background:`linear-gradient(135deg, ${PINK_SUBTLE}, rgba(255,255,255,0.02))`, borderColor:`rgba(230,0,126,0.25)`}}>
+            <div style={{...css.body, padding:"18px 20px"}}>
+              <div style={{...css.hdr, marginBottom:"8px"}}>You're scoring like a</div>
+              <div style={{fontSize:"28px",fontWeight:"700",letterSpacing:"-0.02em",lineHeight:"1.1",marginBottom:"6px"}}>{persona.title}</div>
+              <div style={{fontSize:"13px",color:"var(--color-text-secondary)",lineHeight:"1.55"}}>{persona.line}</div>
+            </div>
+          </div>
+        ) : (
+          <div style={{...css.card, marginBottom:"16px"}}>
+            <div style={{...css.body, padding:"16px 20px"}}>
+              <div style={{fontSize:"14px",color:"var(--color-text-secondary)",lineHeight:"1.55"}}>
+                Score a few more campaigns and we'll show you what kind of scorer you are.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Radar + narrative insights */}
+        <div style={tasteWide ? {display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px",alignItems:"stretch",marginBottom:"16px"} : {marginBottom:"16px"}}>
+          {/* Radar */}
+          <div style={{...css.card, marginBottom: tasteWide ? 0 : "16px"}}>
+            <div style={{...css.body,paddingBottom:"8px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"}}>
+                <div style={css.label}>Taste shape</div>
+                {teamHasData && otherScorerCount>0 && (
+                  <div style={{display:"flex",gap:"12px",fontSize:"10px",color:"var(--color-text-tertiary)",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>
+                    <span style={{display:"flex",alignItems:"center",gap:"5px"}}><span style={{width:"10px",height:"2px",background:PINK,borderRadius:"1px"}}/>You</span>
+                    <span style={{display:"flex",alignItems:"center",gap:"5px"}}><span style={{width:"10px",height:"0",borderTop:"2px dashed rgba(255,255,255,0.5)"}}/>Team</span>
+                  </div>
+                )}
+              </div>
+              <Radar user={userDims} team={teamDims} showTeam={teamHasData} size={tasteWide ? 240 : 260}/>
+              {isPreliminary && (
+                <div style={{textAlign:"center",fontSize:"11px",color:"var(--color-text-tertiary)",marginTop:"4px",fontStyle:"italic"}}>
+                  Preliminary — shape sharpens as you score more.
                 </div>
               )}
             </div>
-            <Radar user={userDims} team={teamDims} showTeam={teamHasData}/>
-            {isPreliminary && (
-              <div style={{textAlign:"center",fontSize:"11px",color:"var(--color-text-tertiary)",marginTop:"4px",fontStyle:"italic"}}>
-                Preliminary — shape sharpens as you score more.
-              </div>
-            )}
+          </div>
+
+          {/* Narrative insights — what the radar means */}
+          <div style={css.card}>
+            <div style={{...css.body, display:"flex", flexDirection:"column", gap:"14px"}}>
+              <div style={css.label}>What this says about you</div>
+              {topDim && (
+                <div>
+                  <div style={{fontSize:"11px",color:PINK,fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"3px"}}>You reward most</div>
+                  <div style={{fontSize:"15px",fontWeight:"600",marginBottom:"2px"}}>{topDim.label} · {topDim.val?.toFixed(1)}</div>
+                  {teamDims[topDim.id] != null && (() => {
+                    const diff = topDim.val - teamDims[topDim.id]
+                    return (
+                      <div style={{fontSize:"12px",color:"var(--color-text-secondary)",lineHeight:"1.5"}}>
+                        {diff >= 0.3
+                          ? `${diff.toFixed(1)} above the team's ${teamDims[topDim.id].toFixed(1)} — you hold this to a higher bar.`
+                          : diff <= -0.3
+                          ? `Team gives it ${teamDims[topDim.id].toFixed(1)} — they value this even more than you.`
+                          : `Team avg ${teamDims[topDim.id].toFixed(1)} — close to the room.`}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+              {bottomDim && bottomDim.id !== topDim?.id && (
+                <div>
+                  <div style={{fontSize:"11px",color:"var(--color-text-tertiary)",fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"3px"}}>You're hardest on</div>
+                  <div style={{fontSize:"15px",fontWeight:"600",marginBottom:"2px"}}>{bottomDim.label} · {bottomDim.val?.toFixed(1)}</div>
+                  {teamDims[bottomDim.id] != null && (
+                    <div style={{fontSize:"12px",color:"var(--color-text-secondary)",lineHeight:"1.5"}}>
+                      Team gives it {teamDims[bottomDim.id].toFixed(1)}{bottomDim.val < teamDims[bottomDim.id] ? " — you push back here." : "."}
+                    </div>
+                  )}
+                </div>
+              )}
+              {graderLabel && (
+                <div>
+                  <div style={{fontSize:"11px",color:"var(--color-text-tertiary)",fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"3px"}}>Compared to the team</div>
+                  <div style={{fontSize:"13px",lineHeight:"1.55"}}>You're a <strong>{graderLabel}</strong> — your average <strong>{overall}</strong> vs the team's {teamOverall?.toFixed(1)}.</div>
+                </div>
+              )}
+              {hotTake && (
+                <div style={{paddingTop:"4px",borderTop:"1px solid var(--color-border-tertiary)"}}>
+                  <div style={{fontSize:"11px",color:PINK,fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"3px",marginTop:"6px"}}>Your boldest call</div>
+                  <div style={{fontSize:"13px",lineHeight:"1.55"}}>You scored <strong>{hotTake.camp.brand}</strong> at <strong>{hotTake.my.toFixed(1)}</strong>. The team: {hotTake.tm.toFixed(1)}.</div>
+                </div>
+              )}
+              {!topDim && !graderLabel && !hotTake && (
+                <div style={{fontSize:"13px",color:"var(--color-text-secondary)",lineHeight:"1.55"}}>
+                  Insights will appear here as you score more campaigns.
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
