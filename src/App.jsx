@@ -20,6 +20,57 @@ const QCOLORS = {
 
 // --- helpers ---
 const api = async (path, opts) => { const r = await fetch(path, { headers:{"Content-Type":"application/json"}, ...opts }); return r.json() }
+
+// Admin token storage. Persists across reloads so the unlock flow is a
+// one-time entry per browser. Cleared explicitly via clearAdminToken
+// (e.g. if a request 401s — token was rotated server-side).
+const ADMIN_TOKEN_KEY = "rs_admin_token"
+const getAdminToken = () => { try { return localStorage.getItem(ADMIN_TOKEN_KEY) || "" } catch { return "" } }
+const setAdminToken = (t) => {
+  try {
+    if (t) localStorage.setItem(ADMIN_TOKEN_KEY, t)
+    else localStorage.removeItem(ADMIN_TOKEN_KEY)
+  } catch { /* private mode / quota — silent */ }
+}
+
+// adminApi attaches X-Admin-Token from localStorage. Returns the parsed
+// JSON on success; throws an Error with the response status on failure
+// so callers can distinguish auth issues from validation. Use this for
+// every admin-write endpoint — never `api()`.
+// Defensive URL guard for render — even though the server validates on
+// insert (server.js: safeUrl), pre-existing rows from before that fix
+// could carry javascript:/data:/vbscript: payloads. Render-time guard
+// returns the URL if it parses as http(s), null otherwise. Components
+// fall back to placeholders when null.
+const renderSafeUrl = (s) => {
+  if (typeof s !== "string" || !s) return null
+  try {
+    const u = new URL(s)
+    return (u.protocol === "http:" || u.protocol === "https:") ? u.href : null
+  } catch { return null }
+}
+
+const adminApi = async (path, opts = {}) => {
+  const token = getAdminToken()
+  const r = await fetch(path, {
+    ...opts,
+    headers: {
+      "Content-Type": "application/json",
+      "X-Admin-Token": token,
+      ...(opts.headers || {}),
+    },
+  })
+  if (!r.ok) {
+    let body = null
+    try { body = await r.json() } catch { /* non-JSON error body — fall through */ }
+    const err = new Error(body?.error || `HTTP ${r.status}`)
+    err.status = r.status
+    throw err
+  }
+  // 204 has no body
+  if (r.status === 204) return null
+  return r.json()
+}
 const shuffle = a => { const b = [...a]; for (let i = b.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]] } return b }
 const avg = vals => { const v = vals.filter(x => x != null && !isNaN(x)); return v.length ? Math.round((v.reduce((a,b)=>a+b,0)/v.length)*10)/10 : null }
 
@@ -375,13 +426,19 @@ function MediaMatrix({ images, videoUrl, link, alt }) {
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen/>
             </div>
           )
-          if (item.type === "image") return (
-            <div key={`i${item.idx}`} style={{borderRadius:"8px",overflow:"hidden"}}>
-              <img src={item.src} alt={`${alt} ${item.idx+1}`} style={{width:"100%",height:"160px",objectFit:"cover",display:"block"}}/>
-            </div>
-          )
+          if (item.type === "image") {
+            const safeSrc = renderSafeUrl(item.src)
+            if (!safeSrc) return null
+            return (
+              <div key={`i${item.idx}`} style={{borderRadius:"8px",overflow:"hidden"}}>
+                <img src={safeSrc} alt={`${alt} ${item.idx+1}`} style={{width:"100%",height:"160px",objectFit:"cover",display:"block"}}/>
+              </div>
+            )
+          }
+          const safeHref = renderSafeUrl(item.url)
+          if (!safeHref) return null
           return (
-            <a key={`l${i}`} href={item.url} target="_blank" rel="noreferrer" style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"160px",borderRadius:"8px",background:"var(--color-background-tertiary)",textDecoration:"none",gap:"8px",border:"1px solid var(--color-border-tertiary)"}}>
+            <a key={`l${i}`} href={safeHref} target="_blank" rel="noreferrer" style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"160px",borderRadius:"8px",background:"var(--color-background-tertiary)",textDecoration:"none",gap:"8px",border:"1px solid var(--color-border-tertiary)"}}>
               <span style={{fontSize:"24px"}}>🔗</span>
               <span style={{fontSize:"12px",color:"var(--color-text-info)"}}>Watch campaign →</span>
             </a>
@@ -403,8 +460,35 @@ export default function App() {
   const [teamData, setTeamData] = useState({})
   const [nameIn,   setNameIn]   = useState("")
   const [roleIn,   setRoleIn]   = useState("")
-  const [unlocked, setUnlocked] = useState(false)
+  // unlocked + passIn are the admin-token UI state. On mount we
+  // optimistically mark unlocked when localStorage already has a token —
+  // the first admin mutation will 401 + clear if the server rotated.
+  const [unlocked, setUnlocked] = useState(() => !!getAdminToken())
   const [passIn,   setPassIn]   = useState("")
+  const [adminErr, setAdminErr] = useState("")
+
+  // Verify a candidate token against /api/admin/verify. Stores on
+  // success (204), surfaces a message on 401 or 503 (the latter means
+  // ADMIN_TOKEN env var isn't set on the server — different fix).
+  const tryUnlock = async () => {
+    setAdminErr("")
+    const candidate = passIn.trim()
+    if (!candidate) { setAdminErr("Enter a token."); return }
+    try {
+      const r = await fetch("/api/admin/verify", { headers: { "X-Admin-Token": candidate } })
+      if (r.status === 204) {
+        setAdminToken(candidate)
+        setUnlocked(true)
+        setPassIn("")
+        return
+      }
+      if (r.status === 503) { setAdminErr("Admin operations are disabled on this deployment (ADMIN_TOKEN unset)."); return }
+      setAdminErr("Wrong token.")
+    } catch (err) {
+      setAdminErr("Could not reach the server.")
+      console.error("[admin] verify failed:", err)
+    }
+  }
   const [newC,     setNewC]     = useState({brand:"",campaign:"",year:"2024",territory:"brand",platform:"",agency:"",stat:"",note:"",scoring:"",link:"",imageUrl:"",videoUrl:"",quality:"strong"})
   const [narrativConcept, setNarrativConcept] = useState(null)
   const [tasteWide, setTasteWide] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width: 820px)").matches)
@@ -502,15 +586,25 @@ export default function App() {
     const imageUrl = images.length ? images[0] : ""
     const u = camps.map(c => c.id===id ? {...c, imageUrl, images, videoUrl} : c)
     setCamps(u)
-    await api(`/api/campaigns/${id}/media`, { method:"PUT", body:JSON.stringify({ imageUrl, images, videoUrl }) })
+    try {
+      await adminApi(`/api/campaigns/${id}/media`, { method:"PUT", body:JSON.stringify({ imageUrl, images, videoUrl }) })
+    } catch (err) {
+      if (err?.status === 401) { setAdminToken(""); setUnlocked(false); alert("Admin session expired. Please unlock again.") }
+      else { console.error("[admin] updateMedia failed:", err) }
+    }
   }
 
   const addCamp = async () => {
     if (!newC.brand.trim() || !newC.campaign.trim()) return
     const camp = {...newC, id:`c_${Date.now()}`}
     setCamps([...camps, camp])
-    await api("/api/campaigns", { method:"POST", body:JSON.stringify(camp) })
-    setNewC({brand:"",campaign:"",year:"2024",territory:"brand",platform:"",agency:"",stat:"",note:"",scoring:"",link:"",imageUrl:"",videoUrl:"",quality:"strong"})
+    try {
+      await adminApi("/api/campaigns", { method:"POST", body:JSON.stringify(camp) })
+      setNewC({brand:"",campaign:"",year:"2024",territory:"brand",platform:"",agency:"",stat:"",note:"",scoring:"",link:"",imageUrl:"",videoUrl:"",quality:"strong"})
+    } catch (err) {
+      if (err?.status === 401) { setAdminToken(""); setUnlocked(false); alert("Admin session expired. Please unlock again.") }
+      else { console.error("[admin] addCamp failed:", err) }
+    }
   }
 
   const camp = camps.find(c => c.id === order[idx])
@@ -1061,13 +1155,18 @@ export default function App() {
       {!unlocked ? (
         <div style={css.card}>
           <div style={css.body}>
-            <div style={css.label}>Password</div>
+            <div style={css.label}>Admin token</div>
             <div style={{display:"flex",gap:"8px",marginTop:"4px"}}>
               <input type="password" style={{...css.inp,flex:1}} value={passIn} onChange={e=>setPassIn(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&passIn==="ralph"&&setUnlocked(true)} placeholder="Enter password"/>
-              <button style={css.btnP} onClick={()=>{if(passIn==="ralph")setUnlocked(true)}}>Unlock</button>
+                onKeyDown={e=>e.key==="Enter"&&tryUnlock()} placeholder="Enter admin token"/>
+              <button style={css.btnP} onClick={tryUnlock}>Unlock</button>
             </div>
-            <div style={{fontSize:"11px",color:"var(--color-text-tertiary)",marginTop:"8px"}}>Default: ralph</div>
+            <div style={{fontSize:"11px",color:"var(--color-text-tertiary)",marginTop:"8px"}}>
+              Server-side ADMIN_TOKEN required. Ask Brook for the current value.
+            </div>
+            {adminErr && (
+              <div style={{fontSize:"12px",color:"#E85656",marginTop:"8px"}}>{adminErr}</div>
+            )}
           </div>
         </div>
       ) : (

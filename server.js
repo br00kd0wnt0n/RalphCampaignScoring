@@ -5,7 +5,52 @@ import { query, initDB } from "./db.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
-app.use(express.json())
+// 64KB body limit. The campaign admin endpoints carry small text + URL
+// fields; from-narrativ carries concept + a few hypotheses. Neither
+// legitimately needs more than a few KB. Tighter limit = less budget for
+// abuse on the unauthenticated from-narrativ endpoint.
+app.use(express.json({ limit: "64kb" }))
+
+// Admin auth gate. ADMIN_TOKEN env var is the server-side secret;
+// callers send it as `X-Admin-Token` header on the campaign admin
+// routes. The previous client-only `password === "ralph"` check was
+// trivially bypassable — anyone reaching the Railway URL could
+// overwrite/insert campaigns, which combined with un-validated URL
+// fields gave them a stored-XSS planting primitive. Now: missing env
+// = locked closed (admin operations 503); missing/wrong header = 401.
+function requireAdminToken(req, res, next) {
+  const expected = process.env.ADMIN_TOKEN
+  if (!expected) {
+    return res.status(503).json({ error: "Admin operations not configured (ADMIN_TOKEN unset)" })
+  }
+  const supplied = req.header("x-admin-token")
+  if (typeof supplied !== "string" || supplied.length === 0 || supplied !== expected) {
+    return res.status(401).json({ error: "Invalid or missing admin token" })
+  }
+  next()
+}
+
+// Validate a caller-supplied URL: must be parseable, must be http(s),
+// must be ≤ 2000 chars. Returns the canonical href on success, null on
+// failure. Empty/null/undefined inputs pass through as null (callers
+// decide whether to treat null as "remove this field" or "required").
+function safeUrl(input) {
+  if (input == null || input === "") return null
+  if (typeof input !== "string" || input.length > 2000) return null
+  try {
+    const u = new URL(input)
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null
+    return u.href
+  } catch {
+    return null
+  }
+}
+
+// Cap a string to N chars; coerce non-string to "".
+function capString(input, max) {
+  if (typeof input !== "string") return ""
+  return input.length > max ? input.slice(0, max) : input
+}
 
 // Allow Ralph Score to be embedded inside the Narrativ cockpit at
 // https://narrativ2.up.railway.app (and inside itself). Without this
@@ -141,57 +186,149 @@ app.get("/api/campaigns", async (req, res) => {
   res.json(rows.map(r => r.data))
 })
 
+// Admin: verify a token without performing any mutation. Used by the
+// frontend "Unlock admin" flow to validate the user's entry before
+// storing it as the admin token in localStorage. Returns 204 on success.
+app.get("/api/admin/verify", requireAdminToken, (_req, res) => {
+  res.status(204).end()
+})
+
 // Admin: update campaign image
-app.put("/api/campaigns/:id/image", async (req, res) => {
-  const { imageUrl } = req.body
+// URL fields are validated as http(s) on insert — `imageUrl` is later
+// rendered as `<img src={…}>` on the frontend, and pre-fix anyone could
+// plant `javascript:` payloads via this endpoint.
+app.put("/api/campaigns/:id/image", requireAdminToken, async (req, res) => {
+  const validImageUrl = safeUrl(req.body?.imageUrl)
   const { rows } = await query("SELECT data FROM campaigns WHERE id = $1", [req.params.id])
   if (!rows.length) return res.status(404).json({ error: "not found" })
 
-  const data = { ...rows[0].data, imageUrl }
+  const data = { ...rows[0].data, imageUrl: validImageUrl }
   await query("UPDATE campaigns SET data = $1 WHERE id = $2", [JSON.stringify(data), req.params.id])
   res.json(data)
 })
 
-// Admin: update campaign media (images + video)
-app.put("/api/campaigns/:id/media", async (req, res) => {
-  const { imageUrl, images, videoUrl } = req.body
+// Admin: update campaign media (images + video). Validates every URL —
+// `imageUrl`, every entry in `images[]`, and `videoUrl` — http(s) only.
+// Invalid entries are dropped silently (preferred over rejecting the
+// whole call because a single bad URL is recoverable from an admin UI).
+app.put("/api/campaigns/:id/media", requireAdminToken, async (req, res) => {
+  const { imageUrl, images, videoUrl } = req.body ?? {}
+  const validImageUrl = safeUrl(imageUrl)
+  const validVideoUrl = safeUrl(videoUrl)
+  const validImages = Array.isArray(images)
+    ? images
+        .slice(0, 50)
+        .map(item => {
+          if (typeof item === "string") {
+            const u = safeUrl(item)
+            return u ? { src: u } : null
+          }
+          if (item && typeof item === "object") {
+            const src = safeUrl(item.src)
+            if (!src) return null
+            return { ...item, src }
+          }
+          return null
+        })
+        .filter(Boolean)
+    : []
+
   const { rows } = await query("SELECT data FROM campaigns WHERE id = $1", [req.params.id])
   if (!rows.length) return res.status(404).json({ error: "not found" })
 
-  const data = { ...rows[0].data, imageUrl, images: images || [], videoUrl }
+  const data = {
+    ...rows[0].data,
+    imageUrl: validImageUrl,
+    images: validImages,
+    videoUrl: validVideoUrl,
+  }
   await query("UPDATE campaigns SET data = $1 WHERE id = $2", [JSON.stringify(data), req.params.id])
   res.json(data)
 })
 
-// Admin: add new campaign
-app.post("/api/campaigns", async (req, res) => {
-  const camp = req.body
-  if (!camp.id || !camp.brand) return res.status(400).json({ error: "id and brand required" })
+// Admin: add or replace a campaign. URL-bearing fields normalised
+// through safeUrl; free-text fields capped to prevent runaway payloads
+// (the 64KB body limit caps this further at the parser level).
+app.post("/api/campaigns", requireAdminToken, async (req, res) => {
+  const camp = req.body ?? {}
+  if (typeof camp.id !== "string" || typeof camp.brand !== "string" || !camp.id || !camp.brand) {
+    return res.status(400).json({ error: "id and brand required" })
+  }
+  const sanitised = {
+    ...camp,
+    id: capString(camp.id, 64),
+    brand: capString(camp.brand, 120),
+    campaign: capString(camp.campaign, 200),
+    year: capString(camp.year, 32),
+    territory: capString(camp.territory, 32),
+    platform: capString(camp.platform, 120),
+    agency: capString(camp.agency, 200),
+    stat: capString(camp.stat, 800),
+    note: capString(camp.note, 1200),
+    scoring: capString(camp.scoring, 1200),
+    link: safeUrl(camp.link),
+    imageUrl: safeUrl(camp.imageUrl),
+    videoUrl: safeUrl(camp.videoUrl),
+    images: Array.isArray(camp.images)
+      ? camp.images
+          .slice(0, 50)
+          .map(item => {
+            if (typeof item === "string") {
+              const u = safeUrl(item)
+              return u ? { src: u } : null
+            }
+            if (item && typeof item === "object") {
+              const src = safeUrl(item.src)
+              if (!src) return null
+              return { ...item, src }
+            }
+            return null
+          })
+          .filter(Boolean)
+      : [],
+  }
 
-  await query("INSERT INTO campaigns (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = $2", [camp.id, JSON.stringify(camp)])
-  res.json(camp)
+  await query(
+    "INSERT INTO campaigns (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = $2",
+    [sanitised.id, JSON.stringify(sanitised)]
+  )
+  res.json(sanitised)
 })
 
-// Create or update campaign from Narrativ concept handoff
+// Create or update campaign from Narrativ concept handoff. NOT admin-
+// gated — this is the per-handoff path triggered when a user lands on
+// Score from Brainstorm via `?source=narrativ`. To keep the surface
+// tight: all fields capped, no URL fields accepted at all on this path,
+// session_id pattern-restricted (UUID-only) so an attacker can't spam
+// rows with arbitrary keys.
 app.post("/api/campaigns/from-narrativ", async (req, res) => {
-  const { session_id, concept, statement, audience, hypotheses } = req.body
-  if (!session_id || !concept) return res.status(400).json({ error: "session_id and concept required" })
+  const { session_id, concept, statement, audience, hypotheses } = req.body ?? {}
+  if (typeof session_id !== "string" || typeof concept !== "string" || !session_id.trim() || !concept.trim()) {
+    return res.status(400).json({ error: "session_id and concept required" })
+  }
+  // Restrict session_id to UUIDs — defends against arbitrary-key spam.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(session_id)) {
+    return res.status(400).json({ error: "session_id must be a UUID" })
+  }
 
   const id = `narrativ_${session_id}`
+  const cappedHypotheses = Array.isArray(hypotheses)
+    ? hypotheses.slice(0, 10).map(h => capString(h, 400))
+    : []
   const data = {
     id,
     brand: "Concept Test",
-    campaign: concept,
+    campaign: capString(concept, 200),
     year: new Date().getFullYear().toString(),
     territory: "concept",
     platform: "Narrativ",
     agency: "Ralph",
-    stat: audience || "Audience to be validated",
-    note: statement || "",
-    scoring: hypotheses?.length
-      ? `Score this concept against these hypotheses:\n${hypotheses.map((h, i) => `${i + 1}. ${h}`).join("\n")}`
+    stat: capString(audience, 800) || "Audience to be validated",
+    note: capString(statement, 1200),
+    scoring: cappedHypotheses.length
+      ? `Score this concept against these hypotheses:\n${cappedHypotheses.map((h, i) => `${i + 1}. ${h}`).join("\n")}`
       : `Score this concept across the 5 dimensions. Is it strong enough to take forward?`,
-    link: "",
+    link: null,
     imageUrl: null,
     quality: "strong",
     source: "narrativ",
