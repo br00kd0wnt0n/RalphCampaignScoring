@@ -615,7 +615,7 @@ export default function App() {
   // ── LOADING ──
   if (screen==="loading") return (
     <div style={{...css.page,display:"flex",alignItems:"center",justifyContent:"center",height:"200px"}}>
-      <span style={{fontSize:"13px",color:"var(--color-text-tertiary)"}}>Loading Voices Calibration…</span>
+      <span style={{fontSize:"13px",color:"var(--color-text-tertiary)"}}>Loading Ralph Score…</span>
     </div>
   )
 
@@ -632,8 +632,8 @@ export default function App() {
     <div style={css.page}>
       <div style={{paddingTop:"8px",marginBottom:"24px"}}>
         <img src="/ralph-logo.png" alt="ralph" style={{height:"36px",marginBottom:"8px"}}/>
-        <div style={css.hdr}>Voices Calibration</div>
-        <div style={css.sub}>We're building a shared definition of creative excellence — and that starts with your taste, your instincts, and your judgement. This exercise asks you to score {camps.length} real campaigns across 5 dimensions. Your scores help us understand what great creative looks like through the eyes of the people who actually make it. This isn't about replacing anyone's expertise — it's about capturing it. Voices gets smarter when it learns from the team, not instead of the team.</div>
+        <div style={css.hdr}>Ralph Score</div>
+        <div style={css.sub}>Watch and score {camps.length} standout campaigns from the last few years — deliberately none of them ours. The exercise is two-fold: <strong>capture what Ralph thinks is good and what isn't</strong> across idea, culture, craft, brand and share, and <strong>broaden the team's view of standout work</strong> in the wider industry. Watch the case film, score it, leave a note on what made it land or fall flat. Your scores stack with everyone else's into Ralph's shared definition of great creative.</div>
         <div style={{display:"flex",gap:"16px",fontSize:"12px",color:"var(--color-text-tertiary)"}}>
           <span>~45 minutes</span><span>·</span><span>Return anytime</span><span>·</span><span>{camps.length} campaigns</span>
         </div>
@@ -728,7 +728,7 @@ export default function App() {
         <div style={{marginBottom:"20px"}}>
           <div style={css.hdr}>From Narrativ</div>
           <div style={css.h1}>Score this concept</div>
-          <div style={css.sub}>A concept has been sent from Narrativ for scoring. You'll score it first across the 5 dimensions, then continue with the calibration set. Select your persona to begin.</div>
+          <div style={css.sub}>A concept has been sent from Narrativ for scoring. You'll score it first across the 5 dimensions, then continue with the Ralph Score campaign set. Select your persona to begin.</div>
         </div>
 
         {/* Concept card */}
