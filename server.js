@@ -52,13 +52,22 @@ function capString(input, max) {
   return input.length > max ? input.slice(0, max) : input
 }
 
-// Allow Ralph Score to be embedded inside the Narrativ cockpit at
-// https://narrativ2.up.railway.app (and inside itself). Without this
-// header, browsers silently block the iframe.
+// Allow Ralph Score to be embedded inside the Narrativ cockpit. The shell
+// runs at the legacy Railway hostname AND at the tools.ralph.world custom
+// domain; both must be allowlisted or the browser silently blocks the
+// iframe. Override via NARRATIV_HOSTS=comma,separated,list on Railway if
+// you need preview deploys or additional origins.
+const NARRATIV_HOSTS = (process.env.NARRATIV_HOSTS || "")
+  .split(",")
+  .map((h) => h.trim())
+  .filter(Boolean)
+const ALLOWED_FRAME_ANCESTORS = NARRATIV_HOSTS.length > 0
+  ? NARRATIV_HOSTS
+  : ["https://narrativ2.up.railway.app", "https://tools.ralph.world"]
 app.use((_req, res, next) => {
   res.setHeader(
     "Content-Security-Policy",
-    "frame-ancestors 'self' https://narrativ2.up.railway.app"
+    `frame-ancestors 'self' ${ALLOWED_FRAME_ANCESTORS.join(" ")}`
   )
   next()
 })
